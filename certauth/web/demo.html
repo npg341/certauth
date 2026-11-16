@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CertAuth live demo</title>
+<style>
+:root {
+  --paper: #F2F5F9;
+  --panel: #FFFFFF;
+  --ink: #15203A;
+  --muted: #56627A;
+  --rule: #D5DCE6;
+  --rule-strong: #AEB9CA;
+  --request: #2F45C9;
+  --request-tint: #E8ECFB;
+  --admit: #0B7A57;
+  --admit-tint: #E1F2EA;
+  --refuse: #C0263E;
+  --refuse-tint: #FBE6EA;
+  --attacker: #B45309;
+  --attacker-tint: #FCEEDF;
+  --display: "Bahnschrift", "DIN Alternate", "Barlow Semi Condensed", "Roboto Condensed", "Arial Narrow", sans-serif;
+  --text: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { font-size: 17px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--text); line-height: 1.5;
+  height: 100vh; display: flex; flex-direction: column; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--request); outline-offset: 2px; border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- top bar ---------- */
+.top { display: flex; align-items: center; gap: 24px; padding: 12px 28px; background: var(--panel);
+  border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.brand svg { width: 38px; height: 38px; color: var(--request); flex: none; }
+.brand h1 { font-family: var(--display); font-size: 1.6rem; font-weight: 700; margin: 0; line-height: 1; letter-spacing: .01em; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: .88rem; }
+.status { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rule-strong); flex: none; }
+.dot.on { background: var(--admit); }
+.dot.off { background: var(--refuse); }
+.actions { display: flex; gap: 8px; }
+.btn { border: 1px solid var(--rule-strong); background: var(--panel); border-radius: 8px; padding: 8px 16px;
+  font-size: .88rem; font-weight: 600; cursor: pointer; }
+.btn:hover { border-color: var(--ink); }
+.btn.primary { background: var(--request); border-color: var(--request); color: #fff; }
+.btn.primary:hover { background: #2437A8; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.warn { border-color: var(--refuse); color: var(--refuse); }
+
+/* ---------- scene stepper ---------- */
+.stepper { background: var(--panel); border-bottom: 1px solid var(--rule); padding: 0 28px; display: flex;
+  align-items: stretch; gap: 20px; overflow-x: auto; }
+.stepper ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 2px; flex: 1; }
+.stepper li { flex: 1 1 0; min-width: 92px; }
+.step { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 9px;
+  background: none; border: 0; border-bottom: 3px solid transparent; cursor: pointer; font-size: .8rem; color: var(--muted); }
+.step .n { position: relative; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid var(--request); color: var(--request); font-family: var(--display); font-weight: 700; font-size: .95rem; }
+.step.attack .n { border-color: var(--attacker); color: var(--attacker); }
+.step.current { color: var(--ink); font-weight: 600; border-bottom-color: var(--request); }
+.step.attack.current { border-bottom-color: var(--attacker); }
+.step.current .n { background: var(--request); color: #fff; }
+.step.attack.current .n { background: var(--attacker); }
+.step .mark { position: absolute; right: -7px; top: -6px; width: 17px; height: 17px; border-radius: 50%;
+  border: 2px solid var(--panel); display: none; }
+.step.good .mark { display: block; background: var(--admit) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100%; }
+.step.bad .mark { display: block; background: var(--refuse) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 4v5M8 11.5v.5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") center/100%; }
+.legend { display: flex; flex-direction: column; justify-content: center; gap: 2px; font-size: .74rem; color: var(--muted);
+  white-space: nowrap; padding-left: 16px; border-left: 1px solid var(--rule); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--request); margin-right: 6px; vertical-align: -1px; }
+.legend span.a::before { border-color: var(--attacker); }
+
+/* ---------- layout ---------- */
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+.stage { overflow: auto; padding: 26px 36px 48px; }
+.side { overflow: auto; background: var(--panel); border-left: 1px solid var(--rule); padding: 18px 22px 40px; }
+
+/* ---------- scene header ---------- */
+.scene-head { display: flex; gap: 18px; align-items: flex-start; }
+.scene-num { flex: none; width: 54px; height: 54px; border-radius: 12px; background: var(--request); color: #fff;
+  display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 1.75rem; }
+.attack .scene-num { background: var(--attacker); }
+.scene-head h2 { font-family: var(--display); font-weight: 600; font-size: 1.85rem; line-height: 1.12; margin: 0; }
+.who { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+.who b { color: var(--ink); font-weight: 600; }
+.attack .who b { color: var(--attacker); }
+.intro { font-size: 1.08rem; max-width: 70ch; margin: 16px 0 0; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 18px; }
+.field label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
+.code-input { font-family: var(--mono); font-size: 1.45rem; letter-spacing: .14em; width: 10.5ch; padding: 4px 10px;
+  border: 2px solid var(--rule-strong); border-radius: 8px; background: var(--panel); color: var(--ink); }
+.code-input:focus { border-color: var(--request); outline: none; }
+.hint { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); min-height: 1.2em; }
+.hint.err { color: var(--refuse); font-weight: 600; }
+
+/* ---------- checkpoint track ---------- */
+.track { position: relative; display: flex; align-items: stretch; margin-top: 10px; padding-top: 50px; }
+.wire { position: absolute; top: 23px; height: 0; border-top: 2px dashed var(--rule-strong); }
+.lane-label { position: absolute; top: 0; left: 0; font-size: .75rem; color: var(--muted); }
+.joint { flex: 0 0 26px; display: grid; place-items: start center; padding-top: 36px; color: var(--rule-strong); }
+.joint svg { width: 20px; height: 20px; }
+.node { position: relative; background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 15px; min-width: 0; }
+.node::before { content: ""; position: absolute; top: -31px; left: 50%; width: 10px; height: 10px; margin-left: -5px;
+  border-radius: 50%; background: var(--rule-strong); }
+.actor { flex: 1 1 0; min-width: 150px; border-left: 6px solid var(--request); }
+.actor.attacker { border-left-color: var(--attacker); }
+.actor .ico { width: 46px; height: 46px; color: var(--request); }
+.actor.attacker .ico { color: var(--attacker); }
+.actor h4 { font-family: var(--display); font-size: 1.08rem; font-weight: 600; margin: 6px 0 6px; line-height: 1.2; }
+.actor ul { list-style: none; margin: 0; padding: 0; font-size: .82rem; color: var(--muted); }
+.actor li + li { margin-top: 3px; }
+.gate { flex: 1.35 1 0; min-width: 190px; transition: opacity .3s, border-color .3s; }
+.gate h4 { font-family: var(--display); font-size: 1.12rem; font-weight: 600; margin: 0; line-height: 1.2; }
+.gate .sub { margin: 2px 0 10px; font-size: .78rem; color: var(--muted); }
+.gate.pass { border-color: var(--admit); box-shadow: inset 0 0 0 1px var(--admit); }
+.gate.fail { border-color: var(--refuse); box-shadow: inset 0 0 0 1px var(--refuse); background: #FFFBFC; }
+.gate.unreached { opacity: .42; border-style: dashed; }
+.gate.unreached::after { content: "Not reached"; position: absolute; right: 12px; top: 14px; font-size: .72rem; color: var(--muted); }
+.checks { list-style: none; margin: 0; padding: 0; }
+.checks li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; padding: 4px 0; font-size: .9rem; line-height: 1.3; }
+.checks li + li { border-top: 1px solid #EDF0F5; }
+.checks .ic { width: 20px; height: 20px; margin-top: 1px; }
+.checks .note { display: block; font-size: .76rem; color: var(--muted); margin-top: 2px; }
+.checks li.fail .lbl { color: var(--refuse); font-weight: 600; }
+.checks li.fail .note { color: var(--refuse); }
+.checks li.skip .lbl { color: var(--muted); }
+.checks li.flash { animation: flash .5s ease-out; }
+@keyframes flash { from { background: var(--request-tint); } to { background: transparent; } }
+.verdict { flex: .9 1 0; min-width: 150px; border-style: dashed; border-color: var(--rule-strong); display: grid; place-items: center;
+  text-align: center; min-height: 150px; }
+.verdict .q { font-family: var(--display); font-size: 2.4rem; color: var(--rule-strong); line-height: 1; }
+.verdict .qtext { font-size: .82rem; color: var(--muted); margin-top: 6px; }
+.verdict.done { border-style: solid; }
+.stamp { display: inline-block; font-family: var(--display); font-weight: 700; font-size: 1.35rem; text-transform: uppercase;
+  letter-spacing: .05em; padding: 6px 12px; border: 3px solid currentColor; border-radius: 6px; transform: rotate(-6deg);
+  line-height: 1.1; }
+.stamp.good { color: var(--admit); background: var(--admit-tint); }
+.stamp.no { color: var(--refuse); background: var(--refuse-tint); }
+.stamp.in { animation: stamp .32s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes stamp { from { transform: scale(1.7) rotate(-16deg); opacity: 0; } to { transform: scale(1) rotate(-6deg); opacity: 1; } }
+.verdict .cap { display: block; font-size: .8rem; color: var(--muted); margin-top: 12px; }
+.packet { position: absolute; top: 9px; left: 0; z-index: 2; padding: 4px 13px; border-radius: 999px; background: var(--request);
+  color: #fff; font-size: .84rem; font-weight: 600; white-space: nowrap; box-shadow: 0 0 0 3px var(--paper);
+  transition: transform .62s cubic-bezier(.5, 0, .3, 1), background .2s; opacity: 0; }
+.packet.attacker { background: var(--attacker); }
+.packet.show { opacity: 1; }
+.packet.refused { background: var(--refuse); }
+
+/* ---------- setup view ---------- */
+.pki { display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr; align-items: stretch; margin-top: 26px; }
+.pki .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 15px; }
+.pki .card h4 { font-family: var(--display); font-size: 1.12rem; margin: 0; font-weight: 600; }
+.pki .card .where { margin: 2px 0 0; font-size: .8rem; color: var(--muted); }
+.pki .card .does { margin: 8px 0 10px; font-size: .9rem; }
+.pki .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); font-size: .7rem; }
+.pki .arrow svg { width: 20px; height: 20px; color: var(--rule-strong); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font-size: .78rem; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-family: var(--mono); font-size: .76rem; word-break: break-all; }
+.enrol-row { display: flex; gap: 22px; align-items: center; margin-top: 18px; background: var(--panel);
+  border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; }
+.enrol-row img { width: 150px; height: 150px; flex: none; image-rendering: pixelated; }
+.enrol-row .ph { width: 150px; height: 150px; flex: none; border: 2px dashed var(--rule-strong); border-radius: 8px;
+  display: grid; place-items: center; color: var(--muted); font-size: .8rem; text-align: center; padding: 10px; }
+.enrol-row h4 { font-family: var(--display); font-size: 1.12rem; margin: 0 0 4px; font-weight: 600; }
+.enrol-row p { margin: 0; font-size: .92rem; max-width: 52ch; }
+
+/* ---------- ledger view ---------- */
+.ledger-view { margin-top: 26px; display: grid; gap: 16px; }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; }
+.panel h4 { font-family: var(--display); font-size: 1.12rem; margin: 0 0 8px; font-weight: 600; }
+.diff { font-family: var(--mono); font-size: .9rem; display: grid; gap: 4px; }
+.diff div { padding: 6px 10px; border-radius: 6px; }
+.diff .old { background: var(--refuse-tint); }
+.diff .new { background: var(--attacker-tint); }
+.diff del { color: var(--refuse); text-decoration-thickness: 2px; }
+.diff ins { color: var(--attacker); text-decoration: none; font-weight: 700; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin: 6px 0 10px; }
+.blk { width: 42px; height: 42px; border-radius: 8px; border: 2px solid var(--admit); display: grid; place-items: center;
+  font-family: var(--mono); font-size: .8rem; background: var(--admit-tint); color: var(--admit); font-weight: 600; }
+.blk.broken { border-color: var(--refuse); background: var(--refuse); color: #fff; }
+.blk.after { border-color: var(--rule-strong); border-style: dashed; background: var(--panel); color: var(--muted); }
+.lnk { width: 14px; height: 2px; background: var(--admit); }
+.lnk.cut { background: repeating-linear-gradient(90deg, var(--refuse) 0 3px, transparent 3px 6px); }
+.lnk.grey { background: var(--rule-strong); }
+.seals { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .88rem; }
+.seals code { font-family: var(--mono); }
+.seals .bad { color: var(--refuse); font-weight: 700; }
+
+/* ---------- outcome ---------- */
+.outcome { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--rule); max-width: 78ch; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 8px; border-radius: 999px;
+  font-size: .84rem; font-weight: 700; }
+.badge svg { width: 18px; height: 18px; }
+.badge.good { background: var(--admit-tint); color: var(--admit); }
+.badge.bad { background: var(--refuse-tint); color: var(--refuse); }
+.outcome h3 { font-family: var(--display); font-size: 1.6rem; font-weight: 600; line-height: 1.18; margin: 8px 0 8px; }
+.outcome .plain { font-size: 1.04rem; margin: 0; }
+.outcome .why { margin: 12px 0 0; padding: 10px 14px; background: var(--request-tint); border-radius: 8px; font-size: .97rem; }
+.outcome ol { margin: 14px 0 0; padding-left: 1.4em; font-size: .95rem; }
+.outcome ol li + li { margin-top: 3px; }
+details.tech { margin-top: 14px; }
+details.tech summary { cursor: pointer; color: var(--request); font-weight: 600; font-size: .92rem; }
+details.tech .kv { margin-top: 10px; font-size: .84rem; gap: 5px 14px; }
+details.tech .kv dd { font-size: .8rem; }
+details.tech pre { margin: 12px 0 0; padding: 12px; background: #F6F8FB; border: 1px solid var(--rule); border-radius: 8px;
+  font-family: var(--mono); font-size: .74rem; max-height: 260px; overflow: auto; }
+.notice { margin-top: 18px; padding: 10px 14px; border-radius: 8px; background: var(--refuse-tint); color: var(--refuse); font-weight: 600; }
+
+/* ---------- side panel ---------- */
+.side h3 { font-family: var(--display); font-size: 1.1rem; font-weight: 600; margin: 0 0 10px; }
+.side section + section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
+.phone { width: 236px; border: 2px solid var(--ink); border-radius: 28px; padding: 16px 16px 20px; position: relative; background: #FBFCFE; }
+.phone::before { content: ""; display: block; width: 54px; height: 5px; border-radius: 3px; background: var(--ink); margin: -4px auto 12px; opacity: .8; }
+.phone .app { font-size: .74rem; color: var(--muted); }
+.phone .acct { font-size: .88rem; font-weight: 600; margin-top: 8px; }
+.phone .coderow { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+.phone .code { font-family: var(--mono); font-size: 2rem; font-weight: 600; letter-spacing: .06em; color: var(--request); }
+.phone .ring { width: 30px; height: 30px; }
+.phone .empty { font-size: .86rem; color: var(--muted); margin: 6px 0 0; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--request); font-size: .84rem; font-weight: 600; cursor: pointer; margin-top: 10px; }
+.qr { margin-top: 10px; }
+.qr img { width: 170px; height: 170px; border: 1px solid var(--rule); border-radius: 6px; image-rendering: pixelated; }
+.qr p { font-size: .76rem; color: var(--muted); margin: 4px 0 0; max-width: 30ch; }
+.idcard { position: relative; border: 1px solid var(--rule-strong); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.idcard + .idcard { margin-top: 12px; }
+.idcard header { display: flex; align-items: center; gap: 8px; background: var(--ink); color: #fff; padding: 7px 12px; }
+.idcard header svg { width: 22px; height: 22px; flex: none; }
+.idcard header b { font-family: var(--display); font-weight: 600; font-size: .95rem; display: block; line-height: 1.1; }
+.idcard header span { font-size: .7rem; opacity: .8; }
+.idcard .kv { padding: 10px 12px; font-size: .78rem; }
+.idcard .kv dd { font-family: var(--text); font-size: .8rem; word-break: normal; }
+.idcard .kv dd.m { font-family: var(--mono); font-size: .74rem; }
+.idcard.revoked .kv { opacity: .55; }
+.idcard.revoked header { background: var(--refuse); }
+.idcard .rv { margin-left: auto; font-family: var(--display); font-weight: 700; font-size: .9rem; text-transform: uppercase;
+  letter-spacing: .05em; border: 2px solid #fff; border-radius: 4px; padding: 1px 7px; transform: rotate(-4deg); }
+.empty-note { font-size: .86rem; color: var(--muted); margin: 0; }
+.chainbadge { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 700; padding: 3px 10px;
+  border-radius: 999px; margin-bottom: 10px; }
+.chainbadge.ok { background: var(--admit-tint); color: var(--admit); }
+.chainbadge.bad { background: var(--refuse-tint); color: var(--refuse); }
+.events { list-style: none; margin: 0; padding: 0; }
+.events li { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 6px; padding: 5px 0 6px 18px; font-size: .82rem; line-height: 1.3; }
+.events li::before { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: var(--admit); opacity: .5; }
+.events li::after { content: ""; position: absolute; left: 0; top: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--admit); }
+.events li.broken::after { background: var(--refuse); }
+.events li.broken::before { background: var(--refuse); }
+.events .seq { font-family: var(--mono); color: var(--muted); font-size: .76rem; padding-top: 1px; }
+.events .x { display: block; color: var(--muted); font-size: .74rem; word-break: break-word; }
+.events .mac { display: block; font-family: var(--mono); color: var(--muted); font-size: .7rem; }
+
+/* ---------- smaller screens ---------- */
+@media (max-width: 1180px) {
+  body { height: auto; }
+  .layout { display: block; }
+  .stage { overflow: visible; }
+  .side { border-left: 0; border-top: 1px solid var(--rule); display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+  .side section + section { margin-top: 0; padding-top: 0; border-top: 0; }
+}
+@media (max-width: 860px) {
+  html { font-size: 16px; }
+  .top, .stepper { padding-left: 16px; padding-right: 16px; }
+  .stage { padding: 20px 16px 40px; }
+  .track { flex-direction: column; padding-top: 0; gap: 0; }
+  .wire, .packet, .lane-label, .node::before { display: none; }
+  .joint { padding: 4px 0; flex-basis: auto; transform: rotate(90deg); }
+  .actor, .gate, .verdict { min-width: 0; }
+  .pki { grid-template-columns: 1fr; gap: 8px; }
+  .pki .arrow { transform: rotate(90deg); height: 20px; }
+  .enrol-row { flex-direction: column; align-items: flex-start; }
+  .legend { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-seal" viewBox="0 0 32 32"><path d="M16 2.5l3 2.4 3.8-.4 1.4 3.6 3.5 1.6-.4 3.8 2.3 3-2.3 3 .4 3.8-3.5 1.6-1.4 3.6-3.8-.4-3 2.4-3-2.4-3.8.4-1.4-3.6-3.5-1.6.4-3.8-2.3-3 2.3-3-.4-3.8 3.5-1.6 1.4-3.6 3.8.4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 16.5l3.4 3.4 6.6-7.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-laptop" viewBox="0 0 48 48"><rect x="9" y="10" width="30" height="21" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M4 35.5h40l-2.6 4.5H6.6z" fill="currentColor"/><circle cx="31" cy="20.5" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M28.6 22.9l-6 6M24.2 27.3l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-attacker" viewBox="0 0 48 48"><path d="M6 46c0-9.5 7.8-15 18-15s18 5.5 18 15z" fill="currentColor"/><path d="M24 3c-7.6 0-12.8 6-12.8 13.6 0 8 5.6 14.4 12.8 14.4s12.8-6.4 12.8-14.4C36.8 9 31.6 3 24 3z" fill="#fff" stroke="currentColor" stroke-width="2.6"/><rect x="12.5" y="12.5" width="23" height="8" rx="4" fill="currentColor"/><circle cx="19" cy="16.5" r="1.8" fill="#fff"/><circle cx="29" cy="16.5" r="1.8" fill="#fff"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M8 4l8 8-8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z" fill="currentColor"/><path d="M8.2 12.2l2.6 2.6 5-5.4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="c-idle" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#AEB9CA" stroke-width="2"/></symbol>
+  <symbol id="c-pass" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#0B7A57"/><path d="M5.8 10.3l2.8 2.8 5.6-6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="c-fail" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#C0263E"/><path d="M6.6 6.6l6.8 6.8M13.4 6.6l-6.8 6.8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="c-none" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#AEB9CA" stroke-width="2"/><path d="M6.5 10h7" stroke="#56627A" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="c-skip" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#AEB9CA" stroke-width="2" stroke-dasharray="2.5 3"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="brand">
+    <svg aria-hidden="true"><use href="#i-seal"/></svg>
+    <div>
+      <h1>CertAuth</h1>
+      <p>Live demo: logging in with a certificate instead of a password</p>
+    </div>
+  </div>
+  <div class="status" id="status"><span class="dot"></span><span>Connecting to the demo server…</span></div>
+  <div class="actions">
+    <button class="btn" id="prevBtn" type="button">Previous</button>
+    <button class="btn" id="nextBtn" type="button">Next scene</button>
+    <button class="btn" id="resetBtn" type="button">Start over</button>
+  </div>
+</header>
+
+<nav class="stepper" aria-label="Scenes">
+  <ol id="stepper"></ol>
+  <div class="legend" aria-hidden="true"><span>Alice using the system</span><span class="a">Someone attacking it</span></div>
+</nav>
+
+<main class="layout">
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <aside class="side">
+    <section>
+      <h3>Alice's phone</h3>
+      <div class="phone" id="phone"></div>
+      <button class="linkbtn" id="qrToggle" type="button" hidden>Show the QR code for a real phone</button>
+      <div class="qr" id="qr" hidden>
+        <img alt="QR code with Alice's TOTP secret" id="qrImg">
+        <p>Scan with Google or Microsoft Authenticator. The codes will match this demo phone.</p>
+      </div>
+    </section>
+    <section>
+      <h3>Alice's digital ID cards</h3>
+      <div id="cards"><p class="empty-note">None yet. Alice gets her first card in scene 3.</p></div>
+    </section>
+    <section>
+      <h3>Audit log on the server</h3>
+      <div id="ledger"><p class="empty-note">Loading…</p></div>
+    </section>
+  </aside>
+</main>
+
+<script>
+"use strict";
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const icon = (id, cls = "") => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
+
+/* -------------------------------------------------------------- the gates */
+const GATES = {
+  secure:   { name: "Secure connection", sub: "TLS 1.3, before anything else",
+              checks: [["tls.channel", "Encrypted connection set up"], ["tls.server", "Server proved who it is"]] },
+  secureCard: { name: "Secure connection", sub: "TLS 1.3 handshake",
+              checks: [["tls.channel", "Encrypted connection set up"], ["tls.server", "Server proved who it is"], ["tls.card", "ID card shown"]] },
+  secureThief: { name: "Secure connection", sub: "TLS 1.3 handshake",
+              checks: [["tls.channel", "Encrypted connection set up"], ["tls.card", "ID card shown"]] },
+  handshake: { name: "Handshake check", sub: "Done by OpenSSL during the TLS handshake",
+              checks: [["tls.ca", "Card signed by our CA"], ["tls.expiry", "Card not expired"], ["tls.revoked", "Card not revoked"], ["tls.key", "Device proves it holds the private key"]] },
+  register: { name: "Device register", sub: "The server's own list of enrolled devices",
+              checks: [["app.enrolled", "Card is on the register"], ["app.owner", "Name on the card matches"]] },
+  code:     { name: "Code check", sub: "The 6-digit backup code",
+              checks: [["code.lock", "Account not locked"], ["code.correct", "Code is correct"], ["code.fresh", "Code not used before"]] },
+  token:    { name: "Login pass check", sub: "Done on every request after login",
+              checks: [["tok.sig", "Pass signature is valid"], ["tok.exp", "Pass has not expired"], ["tok.bound", "Shown with the card it belongs to"]] },
+};
+
+/* -------------------------------------------------------------- the scenes */
+const SCENES = [
+  { id: "register", short: "Set up", title: "Set up the server and register Alice", role: "alice", view: "setup", expect: "done",
+    who: "The admin",
+    intro: "When the server started, it created its own certificate authority (CA): the office that signs digital ID cards. Now the admin adds a user called Alice and sets up the authenticator app on her phone.",
+    why: "Every ID card in this system can be traced back to one root CA. The server trusts nothing else." },
+  { id: "nocert", short: "No card", title: "Alice tries to log in without a certificate", role: "alice", expect: "refused",
+    who: "Alice", actor: "alice", carry: "No ID card", gates: ["secureCard", "register"],
+    intro: "Alice opens a connection and asks to log in, but she has never set up this laptop. What will the server do?",
+    why: "Passwordless login needs a certificate. Without one, the only thing Alice can do is enroll with her code." },
+  { id: "enroll", short: "Enroll", title: "Alice enrolls her laptop, one time only", role: "alice", expect: "issued", input: true,
+    who: "Alice", actor: "alice", carry: "6-digit code", gates: ["secure", "code"],
+    intro: "Alice proves it is really her with the 6-digit code from her phone. Her laptop then asks the server for its own ID card. This is the only time she ever types a code.",
+    why: "The private key is like a fingerprint that never leaves the laptop. The certificate is the ID card that says whose fingerprint it is." },
+  { id: "replay", short: "Reuse code", title: "An attacker reuses the code Alice just typed", role: "attack", expect: "stopped",
+    who: "Eve, an attacker", actor: "eve", carry: "Alice's used code", gates: ["secure", "code"],
+    intro: "Eve was standing behind Alice and saw the code she typed. Seconds later, Eve types the same code on her own computer. Will it work?",
+    why: "Codes from an app can be seen or phished. Accepting each code only once makes a stolen code worthless." },
+  { id: "login", short: "Log in", title: "Alice logs in with no password and no code", role: "alice", expect: "admit",
+    who: "Alice", actor: "alice", carry: "ID card + signature", gates: ["handshake", "register"],
+    intro: "Alice opens the app on her laptop and types nothing at all. Can the laptop prove that it belongs to her?",
+    why: "Nothing is typed, so there is nothing to phish. The signature only works for this one connection to the real server." },
+  { id: "steal", short: "Steal pass", title: "An attacker steals Alice's login pass", role: "attack", expect: "stopped",
+    who: "Eve, an attacker", actor: "eve", carry: "Stolen login pass", gates: ["secureThief", "token"],
+    intro: "After Alice logs in, the server gives her laptop a login pass for the next 15 minutes. Eve steals that pass, for example from a log file or with malware, and sends it from her own computer.",
+    why: "Stolen session passes are a common way into accounts. Here the pass is useless without the device's private key." },
+  { id: "fake", short: "Fake card", title: "An attacker makes a fake ID card for Alice", role: "attack", expect: "stopped",
+    who: "Eve, an attacker", actor: "eve", carry: "Fake ID card", gates: ["handshake", "register"],
+    intro: "Eve sets up her own certificate authority, copies our CA's names exactly, and makes an ID card that says “alice”.",
+    why: "Anyone can write “alice” on a card. Only our CA's private key can make the signature that OpenSSL accepts." },
+  { id: "revoke", short: "Revoke", title: "Alice's laptop is stolen and gets revoked", role: "attack", expect: "stopped",
+    who: "A thief with Alice's laptop", actor: "thief", carry: "Real card + real key", gates: ["handshake", "register"],
+    intro: "Alice's laptop is stolen, with its ID card and private key. She calls the help desk and the admin revokes the card. Then the thief tries to log in.",
+    why: "A lost device can be shut out within seconds, and the server keeps running." },
+  { id: "recover", short: "Recover", title: "Alice gets back in with a new laptop", role: "alice", expect: "admit", input: true,
+    who: "Alice", actor: "alice-new", carry: "New code, then new card", gates: ["code", "handshake", "register"],
+    intro: "Alice gets a new laptop. She uses a fresh code from her phone to enroll it. Can she get back in while the stolen laptop stays locked out?",
+    why: "The backup code can add a device, nothing more. It never lets anyone read data or act as Alice." },
+  { id: "tamper", short: "Edit log", title: "Someone edits the audit log to hide their tracks", role: "attack", view: "ledger", expect: "stopped",
+    who: "Someone with access to the server's files",
+    intro: "Every event so far was written to the server's audit log. Someone opens the file and changes “alice” to “mallory” to hide who did what.",
+    why: "Logs are evidence. Sealing each entry to the one before it, with a secret key, means nobody can quietly rewrite history." },
+];
+
+const ACTORS = {
+  alice: { name: "Alice's laptop", icon: "i-laptop", attacker: false },
+  "alice-new": { name: "Alice's new laptop", icon: "i-laptop", attacker: false },
+  eve: { name: "Eve, an attacker", icon: "i-attacker", attacker: true },
+  thief: { name: "Thief with Alice's laptop", icon: "i-laptop", attacker: true },
+};
+
+function holds(scene) {
+  const card = app && app.current && app.devices[app.current];
+  switch (scene.id) {
+    case "nocert": return ["Private key: none yet", "ID card: none yet"];
+    case "enroll": return ["Code from her phone", "No key or card yet"];
+    case "replay": return [lastCode ? `Knows the code ${lastCode}` : "Knows Alice's code", "Her own computer"];
+    case "login": return card ? ["Private key: on this laptop", `ID card: ${card.name}, ${card.days} days`] : ["No card yet"];
+    case "steal": return ["Alice's login pass", "No card, no private key"];
+    case "fake": return ["Fake card saying “alice”", "Her own private key"];
+    case "revoke": return ["Alice's real card", "Alice's real private key"];
+    case "recover": return ["New code from her phone", "No key or card yet"];
+    default: return [];
+  }
+}
+
+/* -------------------------------------------------------------- state */
+let cur = 0;
+let busy = false;
+let app = null;            // server state
+let phone = null;          // current code on the demo phone
+let lastCode = null;       // the code Alice used in scene 3
+const results = {};        // scene id -> result
+const stage = $("#stage");
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  try {
+    const r = await fetch(path, opt);
+    const data = await r.json().catch(() => ({ ok: false, error: `The server answered ${r.status}.` }));
+    if (!r.ok && data.ok === undefined) data.ok = false;
+    return data;
+  } catch (e) {
+    setStatus(false);
+    return { ok: false, error: "The demo server is not reachable. Is web_demo.py still running?" };
+  }
+}
+
+/* -------------------------------------------------------------- stepper */
+function scoreOf(scene) {
+  const r = results[scene.id];
+  if (!r) return "";
+  return r.verdict.kind === scene.expect ? "good" : "bad";
+}
+function renderStepper() {
+  $("#stepper").innerHTML = SCENES.map((s, i) => `
+    <li><button type="button" class="step ${s.role === "attack" ? "attack" : ""} ${i === cur ? "current" : ""} ${scoreOf(s)}"
+      data-i="${i}" aria-current="${i === cur ? "step" : "false"}" aria-label="Scene ${i + 1}: ${esc(s.title)}">
+      <span class="n">${i + 1}<span class="mark"></span></span><span>${esc(s.short)}</span></button></li>`).join("");
+}
+$("#stepper").addEventListener("click", e => {
+  const b = e.target.closest(".step");
+  if (b && !busy) go(+b.dataset.i);
+});
+
+/* -------------------------------------------------------------- scene */
+function go(i) {
+  cur = Math.max(0, Math.min(SCENES.length - 1, i));
+  renderStepper();
+  renderScene();
+  $("#prevBtn").disabled = cur === 0;
+  $("#nextBtn").disabled = cur === SCENES.length - 1;
+}
+
+function renderScene() {
+  const s = SCENES[cur];
+  const r = results[s.id];
+  stage.className = "stage " + (s.role === "attack" ? "attack" : "");
+  stage.innerHTML = `
+    <div class="scene-head">
+      <div class="scene-num" aria-hidden="true">${cur + 1}</div>
+      <div><h2>${esc(s.title)}</h2><p class="who">Scene ${cur + 1} of ${SCENES.length}. Acting: <b>${esc(s.who)}</b></p></div>
+    </div>
+    <p class="intro">${esc(s.intro)}</p>
+    <div class="controls" id="controls"></div>
+    <div id="viz"></div>
+    <div id="outcome"></div>`;
+  renderControls(s);
+  renderViz(s, r);
+  if (r) { applyFinal(s, r); renderOutcome(s, r); }
+  if (!s.input) $("#runBtn").focus({ preventScroll: true });
+}
+
+function renderControls(s) {
+  const r = results[s.id];
+  const keep = $("#code") ? $("#code").value : "";
+  $("#controls").innerHTML = `
+      ${s.input ? `<div class="field"><label for="code">Code from Alice's phone</label>
+        <input class="code-input" id="code" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="000000"></div>
+        <button class="btn" type="button" id="fillBtn">Use the code on Alice's phone</button>` : ""}
+      <button class="btn ${r ? "" : "primary"}" type="button" id="runBtn">${r ? "Run again" : "Run this scene"}</button>
+      ${r && cur < SCENES.length - 1 ? `<button class="btn primary" type="button" id="goNext">Next scene</button>` : ""}
+      <p class="hint" id="hint"></p>`;
+  $("#runBtn").addEventListener("click", run);
+  const nx = $("#goNext"); if (nx) nx.addEventListener("click", () => go(cur + 1));
+  if (s.input) {
+    $("#code").value = keep;
+    $("#fillBtn").addEventListener("click", fillCode);
+    $("#code").addEventListener("input", () => { $("#code").value = $("#code").value.replace(/\D/g, ""); codeHint(); });
+    $("#code").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+    codeHint();
+  }
+}
+
+function renderViz(s, r) {
+  const viz = $("#viz");
+  if (s.view === "setup") return viz.innerHTML = setupView(r);
+  if (s.view === "ledger") return viz.innerHTML = ledgerView(r);
+  const a = ACTORS[s.actor];
+  const gates = s.gates.map((g, gi) => {
+    const G = GATES[g];
+    return `<div class="joint" aria-hidden="true">${icon("i-chev")}</div>
+      <div class="node gate" data-gate="${gi}">
+        <h4>${esc(G.name)}</h4><p class="sub">${esc(G.sub)}</p>
+        <ul class="checks">${G.checks.map(([id, label]) => `
+          <li data-check="${id}">${icon("c-idle", "ic")}<span><span class="lbl">${esc(label)}</span><span class="note"></span></span></li>`).join("")}
+        </ul></div>`;
+  }).join("");
+  viz.innerHTML = `
+    <div class="track" id="track">
+      <span class="lane-label">What is sent</span>
+      <div class="wire" id="wire"></div>
+      <div class="node actor ${a.attacker ? "attacker" : ""}">
+        ${icon(a.icon, "ico")}<h4>${esc(a.name)}</h4>
+        <ul>${holds(s).map(h => `<li>${esc(h)}</li>`).join("")}</ul>
+      </div>
+      ${gates}
+      <div class="joint" aria-hidden="true">${icon("i-chev")}</div>
+      <div class="node verdict" id="verdict"><div><div class="q">?</div><div class="qtext">What will happen?</div></div></div>
+      <div class="packet ${a.attacker ? "attacker" : ""}" id="packet">${esc(s.carry)}</div>
+    </div>`;
+  requestAnimationFrame(placeWire);
+}
+
+function placeWire() {
+  const t = $("#track"); if (!t) return;
+  const nodes = t.querySelectorAll(".node");
+  const tb = t.getBoundingClientRect();
+  const c = el => { const b = el.getBoundingClientRect(); return b.left - tb.left + b.width / 2; };
+  const w = $("#wire");
+  w.style.left = c(nodes[0]) + "px";
+  w.style.width = (c(nodes[nodes.length - 1]) - c(nodes[0])) + "px";
+}
+addEventListener("resize", () => { placeWire(); });
+
+function movePacket(el) {
+  const t = $("#track"), p = $("#packet");
+  if (!t || !p) return;
+  const tb = t.getBoundingClientRect(), b = el.getBoundingClientRect();
+  const x = b.left - tb.left + b.width / 2 - p.offsetWidth / 2;
+  p.style.transform = `translateX(${Math.max(0, Math.min(x, t.clientWidth - p.offsetWidth))}px)`;
+}
+
+/* -------------------------------------------------------------- check states */
+function plan(s, r) {
+  // Turn the server's result into a state for every gate and check, in order.
+  let failed = false;
+  return s.gates.map(g => {
+    const G = GATES[g];
+    if (failed) return { state: "unreached", checks: G.checks.map(([id]) => ({ id, st: "idle" })) };
+    let gateFailed = false;
+    const checks = G.checks.map(([id]) => {
+      if (gateFailed) return { id, st: "skip", note: "not checked" };
+      const st = r.checks[id] || "skip";
+      if (st === "fail") gateFailed = true;
+      return { id, st, note: r.notes[id] || (st === "skip" ? "not checked" : "") };
+    });
+    if (gateFailed) failed = true;
+    return { state: gateFailed ? "fail" : "pass", checks };
+  });
+}
+function setCheck(li, st, note, flash) {
+  li.className = st + (flash ? " flash" : "");
+  li.querySelector(".ic").innerHTML = `<use href="#c-${st}"/>`;
+  li.querySelector(".note").textContent = note || "";
+}
+function stampHtml(r) {
+  const good = ["admit", "issued", "done"].includes(r.verdict.kind);
+  return `<div><span class="stamp ${good ? "good" : "no"} in">${esc(r.verdict.text)}</span><span class="cap">${esc(r.verdict.caption || "")}</span></div>`;
+}
+function applyFinal(s, r) {
+  if (s.view === "setup" || s.view === "ledger") return;
+  const gates = document.querySelectorAll(".gate");
+  plan(s, r).forEach((g, gi) => {
+    gates[gi].classList.add(g.state);
+    g.checks.forEach(c => setCheck(gates[gi].querySelector(`[data-check="${c.id}"]`), c.st, c.note));
+  });
+  const v = $("#verdict"); v.classList.add("done"); v.innerHTML = stampHtml(r).replace(" in\"", "\"");
+  if (r.code) $("#packet").textContent = `Code ${r.code}`;
+  if (!plan(s, r).some(g => g.state === "fail")) requestAnimationFrame(() => {
+    const p = $("#packet"); p.style.transition = "none"; movePacket(v); p.classList.add("show");
+    requestAnimationFrame(() => { p.style.transition = ""; });
+  });
+}
+
+async function animate(s, r) {
+  const gates = [...document.querySelectorAll(".gate")];
+  const p = $("#packet");
+  if (r.code) p.textContent = `Code ${r.code}`;
+  movePacket($(".actor"));
+  await sleep(60);
+  p.classList.add("show");
+  await sleep(350);
+  const steps = plan(s, r);
+  for (let gi = 0; gi < steps.length; gi++) {
+    const g = steps[gi];
+    if (g.state === "unreached") { gates[gi].classList.add("unreached"); continue; }
+    movePacket(gates[gi]);
+    await sleep(650);
+    for (const c of g.checks) {
+      await sleep(c.st === "skip" ? 120 : 380);
+      setCheck(gates[gi].querySelector(`[data-check="${c.id}"]`), c.st, c.note, true);
+    }
+    gates[gi].classList.add(g.state);
+    if (g.state === "fail") { p.classList.add("refused"); await sleep(300); }
+  }
+  if (!steps.some(g => g.state === "fail")) { movePacket($("#verdict")); await sleep(650); }
+  else p.classList.remove("show");
+  const v = $("#verdict"); v.classList.add("done"); v.innerHTML = stampHtml(r);
+  await sleep(250);
+}
+
+/* -------------------------------------------------------------- special views */
+function setupView(r) {
+  const p = r ? r.pki : [
+    { role: "Root CA", where: "Kept offline, key locked with a passphrase", does: "Signs only the Issuing CA" },
+    { role: "Issuing CA", where: "Inside the server", does: "Signs device ID cards and the revocation list" },
+    { role: "Server certificate", where: "Shown to every visitor", does: "Proves this really is our server" }];
+  const card = c => `<div class="card"><h4>${esc(c.role)}</h4><p class="where">${esc(c.where)}</p><p class="does">${esc(c.does)}</p>
+    <dl class="kv"><dt>Name</dt><dd>${esc(c.name || "–")}</dd><dt>Key</dt><dd>${esc(c.key || "–")}</dd>
+    <dt>Valid until</dt><dd>${esc(c.valid_until || "–")}</dd><dt>Fingerprint</dt><dd>${esc(c.fingerprint_short || "–")}</dd></dl></div>`;
+  const arrow = `<div class="arrow" aria-hidden="true">${icon("i-chev")}<span>signs</span></div>`;
+  return `<div class="pki">${card(p[0])}${arrow}${card(p[1])}${arrow}${card(p[2])}</div>
+    <div class="enrol-row">
+      ${r ? `<img src="/api/qr.svg?t=${Date.now()}" alt="QR code with Alice's TOTP secret">` : `<div class="ph">QR code appears here</div>`}
+      <div><h4>Alice's phone gets her secret</h4>
+      <p>${r ? "Scan this with Google or Microsoft Authenticator if you like. The demo phone on the right shows the same codes." :
+        "The admin creates Alice's account. A random secret goes to her phone through a QR code and is stored encrypted on the server."}</p></div>
+    </div>`;
+}
+
+function ledgerView(r) {
+  if (!r) {
+    const n = app ? app.audit.count : 0;
+    const blocks = Array.from({ length: n }, (_, i) => `${i ? '<span class="lnk"></span>' : ""}<span class="blk">${i + 1}</span>`).join("");
+    return `<div class="ledger-view"><div class="panel"><h4>The audit log right now: ${n} sealed entries</h4>
+      <div class="chain">${blocks}</div>
+      <p class="empty-note">Each entry is sealed with an HMAC over its own contents and the seal of the entry before it.</p></div></div>`;
+  }
+  const L = r.ledger;
+  const blocks = L.chain.map((b, i) => `${i ? `<span class="lnk ${b.state === "broken" ? "cut" : b.state === "after" ? "grey" : ""}"></span>` : ""}<span class="blk ${b.state === "ok" ? "" : b.state}">${b.seq}</span>`).join("");
+  return `<div class="ledger-view">
+    <div class="panel"><h4>The edit to entry ${L.line}</h4>
+      <div class="diff"><div class="old">entry ${L.before.seq}: ${esc(L.before.event)}, user "<del>${esc(L.before.user)}</del>"</div>
+      <div class="new">entry ${L.after.seq}: ${esc(L.after.event)}, user "<ins>${esc(L.after.user)}</ins>"</div></div></div>
+    <div class="panel"><h4>The check: ${esc(L.message)}</h4>
+      <div class="chain">${blocks}</div>
+      <div class="seals"><span>Seal stored in the entry</span><code>${esc(L.stored)}…</code>
+      <span>Seal recomputed now</span><code class="bad">${esc(L.recomputed)}…</code></div></div>
+  </div>`;
+}
+
+/* -------------------------------------------------------------- outcome */
+function badgeFor(s, r) {
+  const good = r.verdict.kind === s.expect;
+  if (!good) return { cls: "bad", text: r.verdict.kind === "refused" ? "Refused" : "Unexpected result" };
+  const t = { stopped: s.id === "tamper" ? "Tampering caught" : "Attack stopped", refused: "Refused, as expected",
+              admit: "Let in", issued: "Card issued", done: "Done" }[r.verdict.kind];
+  return { cls: "good", text: t };
+}
+function renderOutcome(s, r) {
+  const b = badgeFor(s, r);
+  $("#outcome").innerHTML = `<div class="outcome">
+    <span class="badge ${b.cls}">${b.cls === "good" ? icon("i-shield") : ""}${esc(b.text)}</span>
+    <h3>${esc(r.headline)}</h3>
+    <p class="plain">${esc(r.plain)}</p>
+    ${r.verdict.kind === s.expect ? `<p class="why"><b>Why it matters:</b> ${esc(s.why)}</p>` : ""}
+    ${r.steps && r.steps.length ? `<ol>${r.steps.map(x => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}
+    ${(r.details && r.details.length) || r.raw ? `<details class="tech"><summary>Show the technical details</summary>
+      <dl class="kv">${(r.details || []).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      ${r.raw ? `<pre>${esc(JSON.stringify(r.raw, null, 2))}</pre>` : ""}</details>` : ""}
+  </div>`;
+}
+
+/* -------------------------------------------------------------- run */
+async function run() {
+  if (busy) return;
+  const s = SCENES[cur];
+  const body = {};
+  if (s.input) {
+    body.code = $("#code").value.trim();
+    if (!/^\d{6}$/.test(body.code)) { hint("Type the 6-digit code, or press “Use the code on Alice's phone”.", true); $("#code").focus(); return; }
+  }
+  busy = true;
+  $("#runBtn").disabled = true;
+  hint("Talking to the real server…");
+  const r = await api(`/api/scene/${s.id}`, body);
+  if (!r.ok) {
+    busy = false; $("#runBtn").disabled = false;
+    hint(r.error || "Something went wrong.", true);
+    return;
+  }
+  delete results[s.id];
+  renderViz(s);                              // fresh, idle pipeline
+  hint("");
+  if (s.view === "setup" || s.view === "ledger") {
+    $("#viz").innerHTML = s.view === "setup" ? setupView(r) : ledgerView(r);
+  } else {
+    await animate(s, r);
+  }
+  results[s.id] = r;
+  if (s.id === "enroll" && r.card) lastCode = r.code;
+  renderOutcome(s, r);
+  renderStepper();
+  busy = false;
+  renderControls(s);                         // buttons now say "Run again" and "Next scene"
+  const nx = $("#goNext"); if (nx) nx.focus({ preventScroll: true });
+  refresh();
+}
+
+function hint(text, err) {
+  const h = $("#hint"); if (!h) return;
+  h.textContent = text; h.className = "hint" + (err ? " err" : "");
+}
+function fillCode() {
+  if (!phone || !phone.ready) return hint("Alice's phone is not set up yet. Run scene 1 first.", true);
+  $("#code").value = phone.code;
+  codeHint();
+}
+function codeHint() {
+  const s = SCENES[cur]; if (!s.input) return;
+  const v = $("#code").value;
+  if (s.id === "recover" && lastCode && v === lastCode) {
+    hint(`Alice already used ${lastCode} in scene 3, and each code works once. Wait ${phone ? phone.remaining : ""} s for the next one.`, true);
+    $("#runBtn").disabled = true;
+  } else if (!busy) {
+    $("#runBtn").disabled = false;
+    if ($("#hint").classList.contains("err")) hint("");
+  }
+}
+
+/* -------------------------------------------------------------- side panel */
+function setStatus(on, text) {
+  $("#status").innerHTML = `<span class="dot ${on ? "on" : "off"}"></span><span>${esc(text || (on ? "" : "Demo server not reachable"))}</span>`;
+}
+function renderPhone() {
+  const el = $("#phone");
+  if (!phone || !phone.ready) {
+    el.innerHTML = `<div class="app">Authenticator app</div><p class="empty">No account yet. Scene 1 sets it up.</p>`;
+    $("#qrToggle").hidden = true;
+    return;
+  }
+  const frac = phone.remaining / 30, C = 2 * Math.PI * 12;
+  const code = `${phone.code.slice(0, 3)} ${phone.code.slice(3)}`;
+  el.innerHTML = `<div class="app">Authenticator app</div>
+    <div class="acct">${esc(phone.account)}</div>
+    <div class="coderow"><span class="code" aria-label="Current code ${esc(phone.code)}">${esc(code)}</span>
+      <svg class="ring" viewBox="0 0 30 30" role="img" aria-label="${phone.remaining} seconds left">
+        <circle cx="15" cy="15" r="12" fill="none" stroke="#E2E7EF" stroke-width="4"/>
+        <circle cx="15" cy="15" r="12" fill="none" stroke="${phone.remaining <= 5 ? "#C0263E" : "#2F45C9"}" stroke-width="4"
+          stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}" transform="rotate(-90 15 15)" stroke-linecap="round"/>
+        <text x="15" y="19" text-anchor="middle" font-size="10" font-family="Segoe UI, sans-serif" fill="#15203A">${phone.remaining}</text></svg></div>`;
+  $("#qrToggle").hidden = false;
+}
+async function tickPhone() {
+  const p = await api("/api/phone");
+  if (p.ok === false) return;
+  phone = p;
+  renderPhone();
+  if (SCENES[cur].input && $("#code")) codeHint();
+}
+$("#qrToggle").addEventListener("click", () => {
+  const q = $("#qr"), open = q.hidden;
+  q.hidden = !open;
+  if (open) $("#qrImg").src = `/api/qr.svg?t=${Date.now()}`;
+  $("#qrToggle").textContent = open ? "Hide the QR code" : "Show the QR code for a real phone";
+});
+
+function renderCards() {
+  const devs = app ? Object.entries(app.devices) : [];
+  if (!devs.length) { $("#cards").innerHTML = `<p class="empty-note">None yet. Alice gets her first card in scene 3.</p>`; return; }
+  $("#cards").innerHTML = devs.reverse().map(([name, c]) => `
+    <div class="idcard ${c.revoked ? "revoked" : ""}">
+      <header>${icon("i-seal")}<div><b>Digital ID card</b><span>Signed by ${esc(c.issuer)}</span></div>${c.revoked ? `<span class="rv">Revoked</span>` : ""}</header>
+      <dl class="kv"><dt>Name</dt><dd>${esc(c.name)}</dd><dt>Device</dt><dd>${esc(name)}</dd>
+        <dt>Valid</dt><dd>${esc(c.valid_from)} to ${esc(c.valid_until)}</dd>
+        <dt>Serial</dt><dd class="m">${esc(c.serial_short)}</dd>
+        <dt>Key</dt><dd>${esc(c.key)}, private part never leaves the device</dd></dl>
+    </div>`).join("");
+}
+function renderLedger() {
+  if (!app) return;
+  const a = app.audit;
+  $("#ledger").innerHTML = `
+    <span class="chainbadge ${a.ok ? "ok" : "bad"}">${a.ok ? `Seals intact, ${a.count} entries` : `Broken at entry ${a.broken_line}`}</span>
+    <ol class="events">${a.events.slice().reverse().map(e => `
+      <li class="${!a.ok && e.seq === a.broken_line ? "broken" : ""}"><span class="seq">${e.seq ?? "?"}</span>
+        <span>${esc(e.text)}${e.extra ? `<span class="x">${esc(e.extra)}</span>` : ""}<span class="mac">seal ${esc(e.mac)} at ${esc(e.time)}</span></span></li>`).join("")}</ol>`;
+}
+async function refresh() {
+  const s = await api("/api/state");
+  if (s.ok === false) return;
+  app = s;
+  setStatus(true, `Real server running on localhost:${s.server.port}, TLS 1.3 only`);
+  renderCards();
+  renderLedger();
+  if (!busy && !results[SCENES[cur].id] && SCENES[cur].view === "ledger") $("#viz").innerHTML = ledgerView();
+}
+
+/* -------------------------------------------------------------- top bar */
+$("#prevBtn").addEventListener("click", () => !busy && go(cur - 1));
+$("#nextBtn").addEventListener("click", () => !busy && go(cur + 1));
+let resetArmed = null;
+$("#resetBtn").addEventListener("click", async () => {
+  const b = $("#resetBtn");
+  if (!resetArmed) {
+    b.textContent = "Click again to start over"; b.classList.add("warn");
+    resetArmed = setTimeout(() => { resetArmed = null; b.textContent = "Start over"; b.classList.remove("warn"); }, 3500);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null;
+  b.textContent = "Starting over…"; b.disabled = true;
+  await api("/api/reset", {});
+  for (const k in results) delete results[k];
+  lastCode = null; phone = null; $("#qr").hidden = true;
+  b.textContent = "Start over"; b.classList.remove("warn"); b.disabled = false;
+  await refresh(); await tickPhone();
+  go(0);
+});
+addEventListener("keydown", e => {
+  if (busy || e.target.closest("input, textarea")) return;
+  if (e.key === "ArrowRight") go(cur + 1);
+  if (e.key === "ArrowLeft") go(cur - 1);
+});
+
+/* -------------------------------------------------------------- start */
+go(0);
+refresh();
+tickPhone();
+setInterval(tickPhone, 1000);
+setInterval(() => { if (!busy) refresh(); }, 6000);
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+// Terminal → Run Task…  (Windows: run.ps1 finds Python, builds .venv on first run)
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "▶ Run demo",
+      "type": "shell",
+      "windows": {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 demo"
+      },
+      "linux": {
+        "command": "python3 demo.py"
+      },
+      "osx": {
+        "command": "python3 demo.py"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "▶ Run all tests",
+      "type": "shell",
+      "windows": {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 test"
+      },
+      "linux": {
+        "command": "python3 -m pytest -v"
+      },
+      "osx": {
+        "command": "python3 -m pytest -v"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup: create venv + install dependencies",
+      "type": "shell",
+      "windows": {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 setup"
+      },
+      "linux": {
+        "command": "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+      },
+      "osx": {
+        "command": "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Admin: list users and certificates",
+      "type": "shell",
+      "windows": {
+        "command": ".venv\\Scripts\\python -m certauth.admin --data data list"
+      },
+      "command": ".venv/bin/python -m certauth.admin --data data list",
+      "problemMatcher": []
+    }
+  ]
+}

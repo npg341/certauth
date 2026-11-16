@@ -1,0 +1,4 @@
+cryptography>=44
+qrcode>=7      # optional: QR code for authenticator enrollment
+pytest>=8
+pyotp>=2.9     # tests only: independent TOTP cross-check

@@ -1,0 +1,85 @@
+{
+  // Run & Debug panel (Ctrl+Shift+D). Pick a configuration, press F5.
+  // Breakpoints work everywhere, e.g. AuthServer._handle in certauth/server.py
+  // to pause right after the TLS handshake and inspect the client certificate.
+  "version": "0.2.0",
+  "inputs": [
+    { "id": "totpCode", "type": "promptString", "description": "6-digit TOTP code from your authenticator app" },
+    { "id": "username", "type": "promptString", "description": "Username", "default": "alice" },
+    { "id": "device", "type": "promptString", "description": "Device name", "default": "laptop" },
+    { "id": "serial", "type": "promptString", "description": "Certificate serial (hex) to revoke" }
+  ],
+  "configurations": [
+    {
+      "name": "▶ Demo: full walkthrough (start here)",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" },
+      "program": "${workspaceFolder}/demo.py",
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal", "justMyCode": true
+    },
+    {
+      "name": "1. Admin: init PKI",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.admin", "args": ["init"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "env": { "CERTAUTH_DATA": "${workspaceFolder}/data" }
+    },
+    {
+      "name": "2. Admin: add user (shows QR code)",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.admin",
+      "args": ["add-user", "${input:username}"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "env": { "CERTAUTH_DATA": "${workspaceFolder}/data" }
+    },
+    {
+      "name": "3. Server: start (https://localhost:8443)",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.server",
+      "args": ["--data", "${workspaceFolder}/data", "--port", "8443"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal", "justMyCode": false
+    },
+    {
+      "name": "4. Client: enroll device (TOTP once)",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.client",
+      "args": ["enroll", "--user", "${input:username}", "--device", "${input:device}", "--code", "${input:totpCode}"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "env": {
+        "CERTAUTH_CA": "${workspaceFolder}/data/pki/root-ca.crt",
+        "CERTAUTH_PROFILE": "${workspaceFolder}/data/devices/my-device"
+      }
+    },
+    {
+      "name": "5. Client: passwordless login → /me",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.client", "args": ["me"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "env": {
+        "CERTAUTH_CA": "${workspaceFolder}/data/pki/root-ca.crt",
+        "CERTAUTH_PROFILE": "${workspaceFolder}/data/devices/my-device"
+      }
+    },
+    {
+      "name": "6. Client: list my devices",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.client", "args": ["devices"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "env": {
+        "CERTAUTH_CA": "${workspaceFolder}/data/pki/root-ca.crt",
+        "CERTAUTH_PROFILE": "${workspaceFolder}/data/devices/my-device"
+      }
+    },
+    {
+      "name": "7. Admin: revoke a certificate",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.admin",
+      "args": ["revoke", "${input:serial}"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "env": { "CERTAUTH_DATA": "${workspaceFolder}/data" }
+    },
+    {
+      "name": "8. Admin: verify audit log",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "certauth.admin", "args": ["verify-audit"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "env": { "CERTAUTH_DATA": "${workspaceFolder}/data" }
+    },
+    {
+      "name": "Tests: run all (debuggable)",
+      "type": "debugpy", "request": "launch", "windows": { "python": "${workspaceFolder}/.venv/Scripts/python.exe" }, "module": "pytest", "args": ["-v"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal", "justMyCode": false
+    }
+  ]
+}
