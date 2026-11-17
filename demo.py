@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -19,7 +20,24 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "demo-data"
-PORT = 8443
+
+
+def pick_port(preferred: int = 8443) -> int:
+    """Use 8443 if it is free. If another program (for example web_demo.py, which runs its
+    own server with its own CA) already holds it, use a free port instead: connecting to
+    that other server would fail with 'unable to get local issuer certificate'."""
+    with socket.socket() as s:
+        try:
+            s.bind(("127.0.0.1", preferred))
+            return preferred
+        except OSError:
+            pass
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+PORT = pick_port()
 os.environ.update(CERTAUTH_DATA=str(DATA), CERTAUTH_ROOT_PASSPHRASE="demo root passphrase",
                   CERTAUTH_CA=str(DATA / "pki" / "root-ca.crt"), PYTHONIOENCODING="utf-8")
 sys.path.insert(0, str(ROOT))
@@ -47,10 +65,11 @@ def quiet(module, *args):
                           capture_output=True, encoding="utf-8").stdout.strip()
 
 
-def wait_for_server(timeout=10):
-    import socket
+def wait_for_server(server, timeout=15):
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if server.poll() is not None:          # our server exited: show why
+            sys.exit(f"server stopped:\n{(DATA / 'server.log').read_text(errors='replace')}")
         try:
             socket.create_connection(("127.0.0.1", PORT), timeout=0.5).close()
             return
@@ -69,11 +88,13 @@ def main():
     run("certauth.admin", "add-user", "alice")
 
     banner("3. Start the hand-configured TLS 1.3 server")
+    if PORT != 8443:
+        print(f"  port 8443 is busy (is web_demo.py still running?), using port {PORT} instead")
     log = open(DATA / "server.log", "w")
     server = subprocess.Popen([sys.executable, "-m", "certauth.server", "--data", str(DATA),
                                "--port", str(PORT)], cwd=ROOT, stdout=log, stderr=log)
     try:
-        wait_for_server()
+        wait_for_server(server)
         from certauth.client import CertAuthClient
         status, health = CertAuthClient("localhost", PORT, os.environ["CERTAUTH_CA"]).request("GET", "/health")
         print(f"  server up: {health['tls']['version']}  {health['tls']['cipher']}")
