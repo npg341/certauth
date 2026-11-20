@@ -24,7 +24,6 @@ def rejected_reasons(env, timeout=2.0):
         time.sleep(0.02)
 
 
-# ============================================================ happy paths
 def test_full_passwordless_flow(env):
     ident, issued = env.enroll("alice", "laptop")
     c = env.cert_client(ident)
@@ -32,7 +31,7 @@ def test_full_passwordless_flow(env):
     assert status == 200
     assert login["acr"] == "urn:certauth:acr:mtls" and "mtls" in login["amr"]
     assert login["tls"]["version"] == "TLSv1.3"
-    if "verified_chain" in login["tls"]:          # needs Python 3.13+
+    if "verified_chain" in login["tls"]:
         assert login["tls"]["verified_chain"] == ["alice", "CertAuth Issuing CA 1", "CertAuth Root CA"]
     status, me = c.request("GET", "/me", token=login["access_token"])
     assert status == 200 and me["user"] == "alice" and me["device"] == "laptop"
@@ -57,7 +56,6 @@ def test_logout_revokes_token(env):
     assert c.request("GET", "/me", token=tok)[0] == 401
 
 
-# ============================================================ TOTP fallback hardening
 def test_totp_token_is_low_assurance_and_scoped(env):
     status, body = env.client().login_totp("alice", env.code("alice"))
     assert status == 200 and body["scope"] == ["enroll"]
@@ -79,8 +77,6 @@ def test_totp_replay_race_only_one_wins(env):
         results.append(env.client().login_totp("alice", code)[0])
     ts = [threading.Thread(target=go) for _ in range(10)]
     [t.start() for t in ts]; [t.join() for t in ts]
-    # Exactly one success. The rest are rejected as replays (401) — and because replays
-    # count as failures, the later ones may already hit the lockout (429).
     assert results.count(200) == 1
     assert set(results) - {200} <= {401, 429}
 
@@ -115,7 +111,6 @@ def test_per_ip_rate_limit(make_env):
     assert codes == [401, 401, 401, 429, 429]
 
 
-# ============================================================ certificate attacks
 def test_rogue_ca_certificate_rejected_at_handshake(env):
     """Attacker runs their own CA and mints a cert with CN=alice."""
     rk, rc = pki.create_root_ca()
@@ -167,7 +162,7 @@ def test_cert_without_matching_private_key_fails(env):
     other = ec.generate_private_key(ec.SECP256R1())
     pki.write_key(ident[1], other)
     with pytest.raises((ssl.SSLError, ValueError)):
-        env.cert_client(ident)          # OpenSSL refuses: key does not match certificate
+        env.cert_client(ident)
 
 
 def test_csr_identity_fields_ignored(env):
@@ -189,7 +184,6 @@ def test_weak_csr_rejected(env):
     assert status == 400 and "too weak" in body["detail"]
 
 
-# ============================================================ revocation
 def test_revocation_takes_effect_at_tls_layer_immediately(env):
     ident, issued = env.enroll("alice", "phone")
     c = env.cert_client(ident)
@@ -199,7 +193,6 @@ def test_revocation_takes_effect_at_tls_layer_immediately(env):
     with pytest.raises(HANDSHAKE_ERRORS):
         env.cert_client(ident).login_cert()
     assert "certificate revoked" in rejected_reasons(env)
-    # The public CRL endpoint lists the serial.
     from cryptography import x509
     status, der = env.client().request("GET", "/pki/crl")
     crl = x509.load_der_x509_crl(der)
@@ -224,14 +217,13 @@ def test_device_limit(env):
     assert status == 403 and body["error"] == "device_limit_reached"
 
 
-# ============================================================ token theft
 def test_stolen_token_useless_without_bound_certificate(env):
     alice = env.cert_client(env.enroll("alice")[0])
     bob = env.cert_client(env.enroll("bob")[0])
     stolen = alice.login_cert()[1]["access_token"]
-    status, body = env.client().request("GET", "/me", token=stolen)          # no cert
+    status, body = env.client().request("GET", "/me", token=stolen)
     assert status == 401 and "certificate-bound" in body["error"]
-    status, body = bob.request("GET", "/me", token=stolen)                   # attacker's own cert
+    status, body = bob.request("GET", "/me", token=stolen)
     assert status == 401 and "different certificate" in body["error"]
 
 
@@ -242,7 +234,6 @@ def test_expired_session_token(env):
     assert c.request("GET", "/me", token=tok) == (401, {"error": "token expired"})
 
 
-# ============================================================ transport hardening
 def test_tls12_downgrade_refused(env):
     with pytest.raises(HANDSHAKE_ERRORS):
         env.client(min_tls=ssl.TLSVersion.TLSv1_2).request("GET", "/health")
@@ -250,7 +241,7 @@ def test_tls12_downgrade_refused(env):
 
 def test_server_identity_verified_by_client(env):
     """Client pinned to our root rejects a server presenting any other chain."""
-    ctx = ssl.create_default_context()          # system roots only, not our private root
+    ctx = ssl.create_default_context()
     with pytest.raises(ssl.SSLCertVerificationError):
         with socket.create_connection(("127.0.0.1", env.port)) as s:
             ctx.wrap_socket(s, server_hostname="localhost")
@@ -268,7 +259,6 @@ def test_oversized_and_malformed_requests(env):
     assert raw(b"POST /auth/totp HTTP/1.1\r\nContent-Length: 5\r\n\r\n[1,2]").endswith(b"400 Bad Request")
 
 
-# ============================================================ audit trail
 def test_audit_trail_records_flow_and_verifies(env):
     from certauth.audit import AuditLog
     from certauth.crypto import derive, load_master_key

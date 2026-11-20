@@ -14,7 +14,6 @@ from certauth.store import Store
 from certauth.tokens import TokenError, TokenService
 
 
-# ------------------------------------------------------------------ PKI
 @pytest.fixture(scope="module")
 def ca():
     rk, rc = pki.create_root_ca()
@@ -40,7 +39,7 @@ def test_client_cert_profile(ca):
     assert list(eku) == [x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH]
     assert cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca is False
     assert pki.cert_common_name(cert) == "alice"
-    assert (cert.not_valid_after_utc - cert.not_valid_before_utc).days <= 31   # short-lived
+    assert (cert.not_valid_after_utc - cert.not_valid_before_utc).days <= 31
     verifier = PolicyBuilder().store(TrustStore([ca[1]])).build_client_verifier()
     assert verifier.verify(cert, [ic]).chain[-1] == ca[1]
 
@@ -48,12 +47,11 @@ def test_client_cert_profile(ca):
 def test_csr_with_forged_signature_rejected():
     k1, k2 = ec.generate_private_key(ec.SECP256R1()), ec.generate_private_key(ec.SECP256R1())
     good = pki.make_csr(k1).tbs_certrequest_bytes
-    # Build a CSR whose public key is k2 but signed by k1 => no proof of possession.
     forged = (x509.CertificateSigningRequestBuilder().subject_name(pki.make_name("x"))
               .sign(k1, hashes.SHA256()))
     assert forged.is_signature_valid and good
     raw = bytearray(forged.public_bytes(__import__("cryptography").hazmat.primitives.serialization.Encoding.DER))
-    raw[-5] ^= 0xFF                                            # corrupt the signature
+    raw[-5] ^= 0xFF
     with pytest.raises((pki.PKIError, ValueError)):
         pki.validate_csr(x509.load_der_x509_csr(bytes(raw)))
 
@@ -73,7 +71,6 @@ def test_crl_contains_revoked_serial(ca):
     assert crl.extensions.get_extension_for_class(x509.CRLNumber).value.crl_number == 7
 
 
-# ------------------------------------------------------------------ tokens
 @pytest.fixture
 def tokens(tmp_path):
     store = Store(tmp_path / "db", SecretBox(b"k" * 32))
@@ -117,20 +114,17 @@ def test_token_cert_binding(tokens):
     assert e.value.status == 403
 
 
-# ------------------------------------------------------------------ at-rest encryption
 def test_totp_seed_encrypted_and_bound_to_user(tmp_path):
     s = Store(tmp_path / "db", SecretBox(derive(b"m" * 32, "totp-at-rest")))
     s.add_user("alice", "JBSWY3DPEHPK3PXP")
     s.add_user("bob", "KRSXG5CTMVRXEZLU")
     raw = s.db.execute("SELECT totp_secret FROM users WHERE username='alice'").fetchone()[0]
     assert b"JBSWY3DP" not in raw
-    # Row-swap attack: copy alice's ciphertext into bob's row -> AEAD fails (AAD=username).
     s.db.execute("UPDATE users SET totp_secret=? WHERE username='bob'", (raw,))
     with pytest.raises(Exception):
         s.get_user("bob")
 
 
-# ------------------------------------------------------------------ audit log
 @pytest.fixture
 def audit(tmp_path):
     a = AuditLog(tmp_path / "audit.log", b"a" * 32)

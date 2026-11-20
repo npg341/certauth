@@ -42,7 +42,7 @@ os.environ.update(CERTAUTH_DATA=str(DATA), CERTAUTH_ROOT_PASSPHRASE="demo root p
                   CERTAUTH_CA=str(DATA / "pki" / "root-ca.crt"), PYTHONIOENCODING="utf-8")
 sys.path.insert(0, str(ROOT))
 if os.name == "nt":
-    os.system("")                      # enable ANSI colours in the Windows console
+    os.system("")
 
 CYAN, DIM, RESET = "\033[1;36m", "\033[2m", "\033[0m"
 ALICE = ["--profile", str(DATA / "devices" / "alice-laptop"), "--port", str(PORT)]
@@ -68,7 +68,7 @@ def quiet(module, *args):
 def wait_for_server(server, timeout=15):
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if server.poll() is not None:          # our server exited: show why
+        if server.poll() is not None:
             sys.exit(f"server stopped:\n{(DATA / 'server.log').read_text(errors='replace')}")
         try:
             socket.create_connection(("127.0.0.1", PORT), timeout=0.5).close()

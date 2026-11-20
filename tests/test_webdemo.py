@@ -31,11 +31,11 @@ def test_all_scenes_in_order(demo):
         body = {}
         if name == "enroll":
             body = {"code": code_for(demo)}
-        if name == "recover":            # a code from the next time step: fresh, inside the ±1 window
+        if name == "recover":
             body = {"code": code_for(demo, 1)}
         r = demo.run(name, body)
         assert r["verdict"]["kind"] == EXPECT[name], (name, r["headline"])
-    assert demo.state()["audit"]["ok"] is False          # the tamper scene broke the chain
+    assert demo.state()["audit"]["ok"] is False
 
 
 def test_scene_checks_match_server_reasons(demo):
@@ -50,7 +50,7 @@ def test_scenes_need_their_prerequisites(demo):
     with pytest.raises(SceneError):
         demo.run("login", {})
     with pytest.raises(SceneError):
-        demo.run("enroll", {"code": "123456"})          # Alice not registered yet
+        demo.run("enroll", {"code": "123456"})
 
 
 def test_http_api(demo):

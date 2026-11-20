@@ -16,8 +16,8 @@ import json
 import secrets
 import time
 
-ACR_HIGH = "urn:certauth:acr:mtls"     # possession of a CA-issued device key
-ACR_LOW = "urn:certauth:acr:otp"       # knowledge of a current TOTP code only
+ACR_HIGH = "urn:certauth:acr:mtls"
+ACR_LOW = "urn:certauth:acr:otp"
 
 
 class TokenError(Exception):

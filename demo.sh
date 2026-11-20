@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# End-to-end demonstration: PKI setup, TOTP enrollment, passwordless mTLS login,
-# token-theft attempt, live revocation, and audit-log integrity check.
 set -uo pipefail
 cd "$(dirname "$0")"
 

@@ -7,7 +7,7 @@ from certauth import totp
 SEEDS = {"SHA1": b"12345678901234567890",
          "SHA256": b"12345678901234567890123456789012",
          "SHA512": b"1234567890123456789012345678901234567890123456789012345678901234"}
-VECTORS = [  # time, SHA1, SHA256, SHA512   (RFC 6238 Appendix B, 8 digits)
+VECTORS = [
     (59, "94287082", "46119246", "90693936"),
     (1111111109, "07081804", "68084774", "25091201"),
     (1111111111, "14050471", "67062674", "99943326"),
@@ -39,8 +39,8 @@ def test_matches_pyotp():
 def test_window_and_replay():
     key, t = totp.b32decode(totp.generate_secret()), 1_800_000_000
     prev = totp.totp(key, t - 30)
-    assert totp.verify(key, prev, t=t).ok                        # within ±1 step drift
-    assert not totp.verify(key, totp.totp(key, t - 90), t=t).ok   # outside window
+    assert totp.verify(key, prev, t=t).ok
+    assert not totp.verify(key, totp.totp(key, t - 90), t=t).ok
     r = totp.verify(key, totp.totp(key, t), t=t)
     again = totp.verify(key, totp.totp(key, t), t=t, last_step=r.step)
     assert again.replay and not again.ok

@@ -109,7 +109,6 @@ class Store:
         with self.lock:
             return _Result(self.db.execute(sql, params))
 
-    # ------------------------------------------------------------------ users
     def add_user(self, username: str, totp_secret_b32: str) -> None:
         if not USERNAME_RE.match(username):
             raise ValueError("username must be 3-32 chars of a-z 0-9 . _ -")
@@ -153,7 +152,6 @@ class Store:
                             (fails, locked_until, username))
             return locked_until
 
-    # ------------------------------------------------------------------ certificates
     def add_cert(self, serial: int, username: str, device: str, fingerprint: str,
                  key_type: str, not_after: dt.datetime) -> None:
         with self.lock:
@@ -200,17 +198,15 @@ class Store:
         return [(int(r[0], 16), dt.datetime.fromtimestamp(r[1], dt.timezone.utc), r[2])
                 for r in rows]
 
-    # ------------------------------------------------------------------ tokens
     def revoke_jti(self, jti: str, exp: float) -> bool:
         with self.lock:
             self._x("DELETE FROM revoked_tokens WHERE exp < ?", (self.clock(),))
             cur = self._x("INSERT OR IGNORE INTO revoked_tokens VALUES (?,?)", (jti, exp))
-            return cur.rowcount == 1          # False => already used (single-use tokens)
+            return cur.rowcount == 1
 
     def is_jti_revoked(self, jti: str) -> bool:
         return self._x("SELECT 1 FROM revoked_tokens WHERE jti=?", (jti,)).fetchone() is not None
 
-    # ------------------------------------------------------------------ counters
     def next_counter(self, name: str) -> int:
         with self.lock:
             self._x("INSERT OR IGNORE INTO counters VALUES (?, 1)", (name,))

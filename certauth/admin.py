@@ -1,7 +1,7 @@
 """Administrative CLI (run locally on the server host, never exposed over the network).
 
-    python -m certauth.admin init                 # build PKI + master key
-    python -m certauth.admin add-user alice       # prints otpauth:// URI + QR code
+    python -m certauth.admin init
+    python -m certauth.admin add-user alice
     python -m certauth.admin list
     python -m certauth.admin revoke <serial>
     python -m certauth.admin verify-audit
@@ -93,8 +93,6 @@ def cmd_revoke(d: Path, args) -> None:
         sys.exit("no such certificate")
     if not s.revoke_cert(args.serial, args.reason):
         sys.exit("already revoked")
-    # Re-sign the CRL with the issuing CA. A running server notices the new file
-    # (mtime) and rebuilds its SSLContext, so the cert is rejected at the next handshake.
     paths = pki.PKIPaths(d / "pki")
     n = s.next_counter("issuing_crl_number")
     crl = pki.build_crl(pki.load_key(paths.ca_key), pki.load_cert(paths.ca_crt),

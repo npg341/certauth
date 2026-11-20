@@ -74,7 +74,6 @@ def cert_common_name(cert: x509.Certificate) -> str | None:
     return attrs[0].value if attrs else None
 
 
-# --------------------------------------------------------------------------- issuance
 def create_root_ca(days: int = 3650):
     key = gen_key(ec.SECP384R1())
     subject = make_name("CertAuth Root CA", "PKI")
@@ -102,7 +101,6 @@ def create_issuing_ca(root_key, root_cert, days: int = 1825):
         .not_valid_before(now() - CLOCK_SKEW).not_valid_after(now() + dt.timedelta(days=days))
         .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
         .add_extension(key_usage(key_cert_sign=True, crl_sign=True), critical=True)
-        # EKU on a CA constrains what it may issue (OpenSSL enforces EKU chaining).
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH,
                                               ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
@@ -205,7 +203,6 @@ def make_csr(key, cn: str = "device") -> x509.CertificateSigningRequest:
     return x509.CertificateSigningRequestBuilder().subject_name(make_name(cn)).sign(key, algo)
 
 
-# --------------------------------------------------------------------------- file I/O
 def _write_secret(path: Path, data: bytes) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "wb") as f:
@@ -230,8 +227,6 @@ def pem(*objs) -> bytes:
 def write_pem(path: Path, *objs) -> None:
     tmp = Path(str(path) + ".tmp")
     tmp.write_bytes(pem(*objs))
-    # Atomic swap so the TLS server never reads a half-written file. On Windows the
-    # replace can fail briefly while another process has the file open, so retry.
     for attempt in range(50):
         try:
             os.replace(tmp, path)
@@ -246,7 +241,6 @@ def load_cert(path: Path) -> x509.Certificate:
     return x509.load_pem_x509_certificate(Path(path).read_bytes())
 
 
-# --------------------------------------------------------------------------- PKI dir
 @dataclass
 class PKIPaths:
     root: Path
@@ -255,7 +249,7 @@ class PKIPaths:
         self.root = Path(self.root)
 
     root_crt = property(lambda s: s.root / "root-ca.crt")
-    root_key = property(lambda s: s.root / "root-ca.key")          # encrypted, "offline"
+    root_key = property(lambda s: s.root / "root-ca.key")
     root_crl = property(lambda s: s.root / "root-ca.crl.pem")
     ca_crt = property(lambda s: s.root / "issuing-ca.crt")
     ca_key = property(lambda s: s.root / "issuing-ca.key")
@@ -272,7 +266,6 @@ def init_pki(directory: Path, root_passphrase: bytes, hostnames=("localhost",)) 
     root_key, root_cert = create_root_ca()
     ca_key, ca_cert = create_issuing_ca(root_key, root_cert)
     srv_key, srv_cert = create_server_cert(ca_key, ca_cert, hostnames)
-    # The root signs a (empty) CRL for the issuing CA so CRL_CHECK_CHAIN can work.
     root_crl = build_crl(root_key, root_cert, [], number=1, valid_for=dt.timedelta(days=365))
     ca_crl = build_crl(ca_key, ca_cert, [], number=1, valid_for=dt.timedelta(days=7))
 

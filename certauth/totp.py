@@ -30,7 +30,7 @@ def b32decode(secret: str) -> bytes:
 
 def hotp(key: bytes, counter: int, digits: int = 6, algorithm: str = "SHA1") -> str:
     mac = hmac.new(key, struct.pack(">Q", counter), ALGORITHMS[algorithm]).digest()
-    offset = mac[-1] & 0x0F                                      # dynamic truncation
+    offset = mac[-1] & 0x0F
     binary = struct.unpack(">I", mac[offset:offset + 4])[0] & 0x7FFFFFFF
     return str(binary % 10 ** digits).zfill(digits)
 
@@ -59,7 +59,7 @@ def verify(key: bytes, code: str, *, t: float | None = None, period: int = 30, d
     probe = code if well_formed else "\0" * digits
     current = time_step(t, period)
     matched = None
-    for offset in range(-window, window + 1):                    # always full window
+    for offset in range(-window, window + 1):
         step = max(0, current + offset)
         if hmac.compare_digest(hotp(key, step, digits, algorithm), probe) and matched is None:
             matched = step

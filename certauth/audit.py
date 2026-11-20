@@ -17,14 +17,10 @@ from pathlib import Path
 
 GENESIS = "0" * 64
 
-# Cross-process exclusive lock (server and admin CLI write the same chain).
-if os.name == "nt":                                   # Windows
+if os.name == "nt":
     import msvcrt
 
-    # Windows byte-range locks are mandatory: locking real content would block readers
-    # (e.g. verify-audit). Lock one byte far beyond EOF instead — writers still serialise
-    # on it, readers are never blocked.
-    _LOCK_OFFSET = 1 << 30                          # 1 GiB: within the CRT's 32-bit _locking range
+    _LOCK_OFFSET = 1 << 30
 
     def _lock(f):
         f.seek(_LOCK_OFFSET)
@@ -32,13 +28,13 @@ if os.name == "nt":                                   # Windows
             try:
                 msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
                 return
-            except OSError:                           # LK_LOCK gives up after ~10s; retry
+            except OSError:
                 time.sleep(0.05)
 
     def _unlock(f):
         f.seek(_LOCK_OFFSET)
         msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-else:                                                 # Linux / macOS
+else:
     import fcntl
 
     def _lock(f):
@@ -68,8 +64,6 @@ class AuditLog:
         return last["mac"], last["seq"]
 
     def log(self, event: str, **fields) -> None:
-        # Thread lock + exclusive file lock: the server and the admin CLI are separate
-        # processes writing the same chain, so the tail must be re-read under the lock.
         with self.lock, self.path.open("a+b") as f:
             _lock(f)
             try:

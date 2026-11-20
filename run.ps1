@@ -1,5 +1,3 @@
-# One-click runner for Windows / VS Code tasks.
-#   powershell -ExecutionPolicy Bypass -File run.ps1 demo|test|setup
 param([string]$What = "demo")
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
@@ -35,9 +33,10 @@ if (-not (Test-Path $venvPy)) {
 switch ($What) {
     "demo"  { & $venvPy demo.py }
     "test"  {
-        $ErrorActionPreference = "Continue"     # pytest writes to stderr; don't treat it as fatal
+        $ErrorActionPreference = "Continue"
         & $venvPy -m pytest -v --durations=10 --junitxml=test-report.xml
     }
+    "diag"  { & $venvPy diag.py }
     "setup" { & $venvPy -c "import cryptography, sys; print('Ready: Python', sys.version.split()[0], '| cryptography', cryptography.__version__)" }
 }
 exit $LASTEXITCODE

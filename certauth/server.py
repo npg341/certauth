@@ -67,11 +67,11 @@ class Config:
     host: str = "127.0.0.1"
     port: int = 8443
     max_connections: int = 64
-    cert_ttl: int = 900            # token lifetime after mTLS login (s)
-    totp_ttl: int = 300            # enroll-token lifetime after TOTP login (s)
+    cert_ttl: int = 900
+    totp_ttl: int = 300
     client_cert_days: int = 30
     totp_window: int = 1
-    ip_rate: float = 0.2           # TOTP attempts refill per second per IP
+    ip_rate: float = 0.2
     ip_burst: int = 10
     clock: object = field(default=time.time)
 
@@ -126,7 +126,7 @@ class AuthServer:
         self.paths = pki.PKIPaths(d / "pki")
         master = load_master_key(d / "master.key")
         clock = config.clock
-        self.clock = lambda: clock()  # indirection so tests can swap cfg.clock
+        self.clock = lambda: clock()
         self.store = Store(d / "certauth.db", SecretBox(derive(master, "totp-at-rest")), clock=self.clock)
         self.tokens = TokenService(derive(master, "token-signing"), self.store, clock=self.clock)
         self.audit = AuditLog(d / "audit.log", derive(master, "audit-chain"), clock=self.clock)
@@ -139,7 +139,7 @@ class AuthServer:
         self._slots = threading.BoundedSemaphore(config.max_connections)
         self._stop = threading.Event()
         self.sock: socket.socket | None = None
-        self.regenerate_crl()          # make sure the CRL reflects the DB on startup
+        self.regenerate_crl()
         self.routes = {
             ("GET", "/health"): self.h_health,
             ("GET", "/pki/ca"): self.h_ca,
@@ -153,22 +153,17 @@ class AuthServer:
             ("POST", "/logout"): self.h_logout,
         }
 
-    # ================================================================ TLS context
     def build_context(self) -> ssl.SSLContext:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_3       # no downgrade to 1.2 or below
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_3
         ctx.maximum_version = ssl.TLSVersion.TLSv1_3
         ctx.options |= ssl.OP_NO_TICKET | ssl.OP_NO_COMPRESSION | ssl.OP_NO_RENEGOTIATION
         ctx.load_cert_chain(self.paths.server_chain, self.paths.server_key)
-        # Trust anchor = our private root ONLY (not the system store).
         ctx.load_verify_locations(cafile=str(self.paths.root_crt))
-        # CRLs for every CA in the chain; OpenSSL rejects revoked certs during handshake.
         ctx.load_verify_locations(cafile=str(self.paths.root_crl))
         ctx.load_verify_locations(cafile=str(self.paths.ca_crl))
         ctx.verify_flags = (ssl.VERIFY_X509_STRICT | ssl.VERIFY_CRL_CHECK_CHAIN
                             | ssl.VERIFY_X509_TRUSTED_FIRST)
-        # OPTIONAL: a client *may* present a certificate (passwordless path); if it does,
-        # it must verify. No certificate => only the TOTP fallback endpoints are usable.
         ctx.verify_mode = ssl.CERT_OPTIONAL
         ctx.set_alpn_protocols(["http/1.1"])
         return ctx
@@ -189,10 +184,9 @@ class AuthServer:
                             number=number, valid_for=dt.timedelta(days=7))
         pki.write_pem(self.paths.ca_crl, crl)
         with self._ctx_lock:
-            self._crl_mtime = None      # force rebuild on next connection
+            self._crl_mtime = None
         self.audit.log("pki.crl_published", crl_number=number, revoked=len(crl))
 
-    # ================================================================ socket loop
     def start(self) -> int:
         self.sock = socket.create_server((self.cfg.host, self.cfg.port), backlog=128)
         self.sock.settimeout(0.5)
@@ -236,7 +230,7 @@ class AuthServer:
             except OSError:
                 break
             if not self._slots.acquire(blocking=False):
-                raw.close()                     # connection cap (basic DoS guard)
+                raw.close()
                 continue
             threading.Thread(target=self._handle, args=(raw, addr), daemon=True).start()
 
@@ -245,7 +239,7 @@ class AuthServer:
         try:
             raw.settimeout(10)
             try:
-                conn = self.context().wrap_socket(raw, server_side=True)   # handshake here
+                conn = self.context().wrap_socket(raw, server_side=True)
             except ssl.SSLCertVerificationError as e:
                 self.audit.log("tls.client_cert_rejected", ip=ip, reason=e.verify_message,
                                code=e.verify_code)
@@ -267,8 +261,7 @@ class AuthServer:
         cert = x509.load_der_x509_certificate(der) if der else None
         tls = {"version": conn.version(), "cipher": conn.cipher()[0],
                "client_cert": bool(cert)}
-        if cert and hasattr(conn, "get_verified_chain"):          # Python 3.13+
-            # Chain as OpenSSL actually validated it: leaf -> issuing CA -> root.
+        if cert and hasattr(conn, "get_verified_chain"):
             tls["verified_chain"] = [pki.cert_common_name(x509.load_der_x509_certificate(c))
                                      for c in conn.get_verified_chain()]
         try:
@@ -294,7 +287,6 @@ class AuthServer:
             log.exception("handler crashed")
             self._send(conn, 500, {"error": "internal_error"})
 
-    # ================================================================ HTTP/1.1
     def _read_request(self, conn, ip, cert, tls) -> Request:
         buf = b""
         while b"\r\n\r\n" not in buf:
@@ -337,7 +329,6 @@ class AuthServer:
         except OSError:
             pass
 
-    # ================================================================ policy helpers
     def _require_enrolled_cert(self, req: Request):
         """App-layer checks on top of what OpenSSL already verified."""
         if not req.cert:
@@ -363,13 +354,12 @@ class AuthServer:
 
     def _auth(self, req: Request, scope: str) -> dict:
         claims = self.tokens.verify(req.bearer(), req.cert_fp, scope)
-        if req.cert_fp:                       # defence in depth: bound cert still valid?
+        if req.cert_fp:
             rec = self.store.cert_by_fingerprint(req.cert_fp)
             if rec and rec.revoked:
                 raise TokenError("certificate revoked")
         return claims
 
-    # ================================================================ handlers
     def h_health(self, req):
         return 200, {"status": "ok", "tls": req.tls}
 
@@ -404,7 +394,6 @@ class AuthServer:
             raise HTTPError(429, "account_temporarily_locked",
                             retry_after=int(user.locked_until - now) + 1)
         if user is None:
-            # Burn equivalent work so response time does not reveal whether the user exists.
             totp.verify(b"\0" * 20, code, t=now, window=self.cfg.totp_window)
             self.audit.log("auth.totp_failure", ip=req.ip, user=username, reason="unknown_user")
             raise HTTPError(401, "invalid_credentials")
@@ -438,7 +427,7 @@ class AuthServer:
             raise HTTPError(400, "invalid_csr", detail=str(e))
         if self.store.active_cert_count(claims["sub"]) >= MAX_DEVICES:
             raise HTTPError(403, "device_limit_reached")
-        if claims.get("one") and not self.tokens.revoke(claims):     # consume single-use token
+        if claims.get("one") and not self.tokens.revoke(claims):
             raise TokenError("token revoked or already used")
         cert = pki.issue_client_cert(self.ca_key, self.ca_cert, csr.public_key(), claims["sub"],
                                      device, days=self.cfg.client_cert_days,
@@ -480,7 +469,7 @@ class AuthServer:
             raise HTTPError(403, "step_up_required")
         serial = str(req.json().get("serial", "")).lower()
         rec = self.store.cert_by_serial(serial)
-        if not rec or rec.username != claims["sub"]:          # cannot revoke others' devices
+        if not rec or rec.username != claims["sub"]:
             raise HTTPError(404, "no_such_device")
         if not self.store.revoke_cert(serial, "keyCompromise"):
             raise HTTPError(400, "already_revoked")

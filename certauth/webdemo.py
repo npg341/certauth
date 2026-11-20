@@ -47,7 +47,6 @@ class SceneError(Exception):
     """A scene cannot run yet (e.g. an earlier scene is needed first)."""
 
 
-# --------------------------------------------------------------------------- helpers
 def _port_free(port: int) -> bool:
     with socket.socket() as s:
         try:
@@ -91,7 +90,6 @@ def decode_token(token: str) -> dict:
     return json.loads(_b64d(token.split(".")[1]))
 
 
-# Plain-language names for audit events, shown in the page's ledger.
 EVENT_TEXT = {
     "server.start": "Server started",
     "pki.crl_published": "Revocation list published",
@@ -113,7 +111,6 @@ EVENT_TEXT = {
 }
 
 
-# --------------------------------------------------------------------------- the demo
 class Demo:
     def __init__(self, base: Path, tls_port: int):
         self.base = Path(base).resolve()
@@ -122,13 +119,12 @@ class Demo:
         self.server: AuthServer | None = None
         self.reset()
 
-    # ------------------------------------------------------------------ lifecycle
     def _fresh_dir(self) -> Path:
         if self.base.exists() and not (self.base / MARKER).exists() and any(self.base.iterdir()):
             raise SystemExit(f"{self.base} exists and is not a web-demo folder; choose another --data")
         self.base.mkdir(parents=True, exist_ok=True)
         (self.base / MARKER).write_text("created by certauth.webdemo; safe to delete\n")
-        for old in self.base.glob("run-*"):              # best effort; Windows may hold files
+        for old in self.base.glob("run-*"):
             shutil.rmtree(old, ignore_errors=True)
         run = self.base / f"run-{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 10**6}"
         run.mkdir()
@@ -150,13 +146,12 @@ class Demo:
             self.port = self.server.start()
             self.ca = self.server.paths.root_crt
             self.secret: str | None = None
-            self.devices: dict[str, dict] = {}     # name -> {crt, key, card, revoked}
+            self.devices: dict[str, dict] = {}
             self.current: str | None = None
             self.enroll_code: str | None = None
             self.token: str | None = None
             self.tampered: dict | None = None
 
-    # ------------------------------------------------------------------ low-level
     def client(self, ident: dict | None = None) -> CertAuthClient:
         if ident:
             return CertAuthClient("localhost", self.port, self.ca, ident["crt"], ident["key"])
@@ -239,7 +234,6 @@ class Demo:
         self.need(self.current, "Alice has no certificate yet. Run scene 3 first.")
         return self.devices[self.current]
 
-    # ------------------------------------------------------------------ state for the page
     def phone(self) -> dict:
         if not self.secret:
             return {"ready": False}
@@ -283,7 +277,6 @@ class Demo:
         return {"seq": e.get("seq"), "text": text, "extra": extra, "time": ts,
                 "mac": (e.get("mac") or "")[:10], "event": e.get("event")}
 
-    # ================================================================== scenes
     def scene_register(self, body: dict) -> dict:
         root = pki.load_cert(self.server.paths.root_crt)
         ica = pki.load_cert(self.server.paths.ca_crt)
@@ -369,7 +362,6 @@ class Demo:
                               "Wait for the phone to show a new code and try again."),
                     "details": [["Server answer", f"{status} {body.get('error')}"]], "raw": body}
         enroll_claims = decode_token(body["access_token"])
-        # The laptop makes its own key pair. Only the public part leaves, inside a CSR.
         key = ec.generate_private_key(ec.SECP256R1())
         csr = pki.make_csr(key, device)
         status2, res = c.enroll(body["access_token"], pki.pem(csr).decode(), device)
@@ -379,7 +371,7 @@ class Demo:
         (folder / "device.crt").write_text(res["certificate_chain"])
         pki.write_key(folder / "device.key", key)
         leaf = x509.load_pem_x509_certificates(res["certificate_chain"].encode())[0]
-        self.devices.pop(device, None)              # re-enrolled devices move to the top of the list
+        self.devices.pop(device, None)
         self.devices[device] = {"crt": folder / "device.crt", "key": folder / "device.key",
                                 "card": {**cert_card(leaf), "device": device}, "revoked": False}
         self.current = device
@@ -492,7 +484,7 @@ class Demo:
                 "raw": resp}
 
     def scene_fake(self, body: dict) -> dict:
-        rk, rc = pki.create_root_ca()               # Eve's own CA, with copied names
+        rk, rc = pki.create_root_ca()
         ik, ic = pki.create_issuing_ca(rk, rc)
         key = ec.generate_private_key(ec.SECP256R1())
         fake = pki.issue_client_cert(ik, ic, key.public_key(), USER, "eve-fake")
@@ -621,12 +613,11 @@ class Demo:
             return result
 
 
-# --------------------------------------------------------------------------- web server
 def make_handler(demo: Demo):
     class Handler(BaseHTTPRequestHandler):
         server_version = "CertAuthDemo/1.0"
 
-        def log_message(self, *args):              # keep the terminal clean
+        def log_message(self, *args):
             pass
 
         def _send(self, status: int, body, ctype="application/json"):
@@ -670,7 +661,7 @@ def make_handler(demo: Demo):
                 self._send(404, {"error": "not found"})
             except SceneError as e:
                 self._send(409, {"ok": False, "error": str(e)})
-            except Exception as e:                     # show the real error on the page
+            except Exception as e:
                 self._send(500, {"ok": False, "error": f"{type(e).__name__}: {e}"})
 
     return Handler

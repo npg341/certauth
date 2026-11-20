@@ -3,8 +3,8 @@
 The device key pair is generated locally (P-256 by default) and written with 0600
 permissions, optionally passphrase-encrypted. Only the CSR is sent to the server.
 
-    python -m certauth.client enroll --user alice --device laptop      # TOTP once
-    python -m certauth.client me                                       # passwordless from now on
+    python -m certauth.client enroll --user alice --device laptop
+    python -m certauth.client me
     python -m certauth.client devices
     python -m certauth.client revoke <serial>
 """
@@ -32,15 +32,12 @@ class CertAuthClient:
         ctx.minimum_version = min_tls
         ctx.maximum_version = ssl.TLSVersion.TLSv1_3
         if min_tls < ssl.TLSVersion.TLSv1_3:
-            ctx.maximum_version = min_tls  # used by tests to simulate a downgrade attempt
+            ctx.maximum_version = min_tls
         if cert_file:
             ctx.load_cert_chain(str(cert_file), str(key_file), password=key_password)
         self.ctx = ctx
 
     def request(self, method: str, path: str, body: dict | None = None, token: str | None = None):
-        # Connect straight to 127.0.0.1 for "localhost": on Windows, "localhost" tries IPv6
-        # (::1) first and waits ~2 s before falling back. The server cert has an IP SAN for
-        # 127.0.0.1, so hostname verification still applies.
         host = "127.0.0.1" if self.host == "localhost" else self.host
         conn = http.client.HTTPSConnection(host, self.port, context=self.ctx, timeout=10)
         headers = {"Content-Type": "application/json"}
@@ -56,7 +53,6 @@ class CertAuthClient:
         finally:
             conn.close()
 
-    # convenience wrappers
     def login_cert(self):
         return self.request("POST", "/auth/cert")
 
@@ -67,7 +63,6 @@ class CertAuthClient:
         return self.request("POST", "/enroll", {"csr": csr_pem, "device": device}, token)
 
 
-# ============================================================================ CLI
 def _profile(args) -> Path:
     p = Path(args.profile).expanduser()
     p.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -149,8 +144,6 @@ def main(argv=None) -> int:
     try:
         return _dispatch(args)
     except (ssl.SSLError, ConnectionError) as e:
-        # Linux delivers the server's TLS alert (e.g. certificate_revoked); Windows often
-        # only reports a connection reset. Either way, diagnose from public PKI data.
         reason = getattr(e, "reason", None) or e.__class__.__name__
         print(f"TLS handshake refused by server ({reason})")
         print(diagnose_certificate(args))
