@@ -1,12 +1,3 @@
-"""Administrative CLI (run locally on the server host, never exposed over the network).
-
-    python -m certauth.admin init
-    python -m certauth.admin add-user alice
-    python -m certauth.admin list
-    python -m certauth.admin revoke <serial>
-    python -m certauth.admin verify-audit
-    python -m certauth.admin serve
-"""
 from __future__ import annotations
 
 import argparse
@@ -110,7 +101,6 @@ def cmd_verify_audit(d: Path, args) -> None:
 
 
 def cmd_totp_now(d: Path, args) -> None:
-    """DEV/DEMO ONLY: print the current code, standing in for a phone authenticator."""
     u = _store(d).get_user(args.username)
     print(totp.totp(totp.b32decode(u.totp_secret)))
 

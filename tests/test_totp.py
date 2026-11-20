@@ -1,4 +1,3 @@
-"""RFC 6238 Appendix B test vectors + cross-check against an independent library."""
 import pyotp
 import pytest
 

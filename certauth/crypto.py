@@ -1,6 +1,3 @@
-"""Key management: one 256-bit master key on disk, from which independent
-sub-keys are derived with HKDF-SHA256 (domain separation per purpose), plus an
-AES-256-GCM box used to encrypt TOTP seeds at rest."""
 from __future__ import annotations
 
 import os
@@ -30,9 +27,6 @@ def derive(master: bytes, purpose: str) -> bytes:
 
 
 class SecretBox:
-    """AES-256-GCM. The AAD binds a ciphertext to its owner (e.g. the username) so a
-    database attacker cannot swap one user's encrypted TOTP seed into another's row."""
-
     def __init__(self, key: bytes):
         self._aead = AESGCM(key)
 

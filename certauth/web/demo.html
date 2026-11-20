@@ -33,7 +33,6 @@ button { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--request); outline-offset: 2px; border-radius: 6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* ---------- top bar ---------- */
 .top { display: flex; align-items: center; gap: 24px; padding: 12px 28px; background: var(--panel);
   border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
@@ -53,7 +52,6 @@ button { font: inherit; color: inherit; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.warn { border-color: var(--refuse); color: var(--refuse); }
 
-/* ---------- scene stepper ---------- */
 .stepper { background: var(--panel); border-bottom: 1px solid var(--rule); padding: 0 28px; display: flex;
   align-items: stretch; gap: 20px; overflow-x: auto; }
 .stepper ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 2px; flex: 1; }
@@ -77,12 +75,10 @@ button { font: inherit; color: inherit; }
   border: 2px solid var(--request); margin-right: 6px; vertical-align: -1px; }
 .legend span.a::before { border-color: var(--attacker); }
 
-/* ---------- layout ---------- */
 .layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
 .stage { overflow: auto; padding: 26px 36px 48px; }
 .side { overflow: auto; background: var(--panel); border-left: 1px solid var(--rule); padding: 18px 22px 40px; }
 
-/* ---------- scene header ---------- */
 .scene-head { display: flex; gap: 18px; align-items: flex-start; }
 .scene-num { flex: none; width: 54px; height: 54px; border-radius: 12px; background: var(--request); color: #fff;
   display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 1.75rem; }
@@ -101,7 +97,6 @@ button { font: inherit; color: inherit; }
 .hint { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); min-height: 1.2em; }
 .hint.err { color: var(--refuse); font-weight: 600; }
 
-/* ---------- checkpoint track ---------- */
 .track { position: relative; display: flex; align-items: stretch; margin-top: 10px; padding-top: 50px; }
 .wire { position: absolute; top: 23px; height: 0; border-top: 2px dashed var(--rule-strong); }
 .lane-label { position: absolute; top: 0; left: 0; font-size: .75rem; color: var(--muted); }
@@ -154,7 +149,6 @@ button { font: inherit; color: inherit; }
 .packet.show { opacity: 1; }
 .packet.refused { background: var(--refuse); }
 
-/* ---------- setup view ---------- */
 .pki { display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr; align-items: stretch; margin-top: 26px; }
 .pki .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 15px; }
 .pki .card h4 { font-family: var(--display); font-size: 1.12rem; margin: 0; font-weight: 600; }
@@ -173,7 +167,6 @@ button { font: inherit; color: inherit; }
 .enrol-row h4 { font-family: var(--display); font-size: 1.12rem; margin: 0 0 4px; font-weight: 600; }
 .enrol-row p { margin: 0; font-size: .92rem; max-width: 52ch; }
 
-/* ---------- ledger view ---------- */
 .ledger-view { margin-top: 26px; display: grid; gap: 16px; }
 .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; }
 .panel h4 { font-family: var(--display); font-size: 1.12rem; margin: 0 0 8px; font-weight: 600; }
@@ -195,7 +188,6 @@ button { font: inherit; color: inherit; }
 .seals code { font-family: var(--mono); }
 .seals .bad { color: var(--refuse); font-weight: 700; }
 
-/* ---------- outcome ---------- */
 .outcome { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--rule); max-width: 78ch; }
 .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 8px; border-radius: 999px;
   font-size: .84rem; font-weight: 700; }
@@ -215,7 +207,6 @@ details.tech pre { margin: 12px 0 0; padding: 12px; background: #F6F8FB; border:
   font-family: var(--mono); font-size: .74rem; max-height: 260px; overflow: auto; }
 .notice { margin-top: 18px; padding: 10px 14px; border-radius: 8px; background: var(--refuse-tint); color: var(--refuse); font-weight: 600; }
 
-/* ---------- side panel ---------- */
 .side h3 { font-family: var(--display); font-size: 1.1rem; font-weight: 600; margin: 0 0 10px; }
 .side section + section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
 .phone { width: 236px; border: 2px solid var(--ink); border-radius: 28px; padding: 16px 16px 20px; position: relative; background: #FBFCFE; }
@@ -258,7 +249,6 @@ details.tech pre { margin: 12px 0 0; padding: 12px; background: #F6F8FB; border:
 .events .x { display: block; color: var(--muted); font-size: .74rem; word-break: break-word; }
 .events .mac { display: block; font-family: var(--mono); color: var(--muted); font-size: .7rem; }
 
-/* ---------- smaller screens ---------- */
 @media (max-width: 1180px) {
   body { height: auto; }
   .layout { display: block; }
@@ -350,7 +340,6 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const icon = (id, cls = "") => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
 
-/* -------------------------------------------------------------- the gates */
 const GATES = {
   secure:   { name: "Secure connection", sub: "TLS 1.3, before anything else",
               checks: [["tls.channel", "Encrypted connection set up"], ["tls.server", "Server proved who it is"]] },
@@ -368,7 +357,6 @@ const GATES = {
               checks: [["tok.sig", "Pass signature is valid"], ["tok.exp", "Pass has not expired"], ["tok.bound", "Shown with the card it belongs to"]] },
 };
 
-/* -------------------------------------------------------------- the scenes */
 const SCENES = [
   { id: "register", short: "Set up", title: "Set up the server and register Alice", role: "alice", view: "setup", expect: "done",
     who: "The admin",
@@ -434,13 +422,12 @@ function holds(scene) {
   }
 }
 
-/* -------------------------------------------------------------- state */
 let cur = 0;
 let busy = false;
-let app = null;            // server state
-let phone = null;          // current code on the demo phone
-let lastCode = null;       // the code Alice used in scene 3
-const results = {};        // scene id -> result
+let app = null;
+let phone = null;
+let lastCode = null;
+const results = {};
 const stage = $("#stage");
 
 async function api(path, body) {
@@ -456,7 +443,6 @@ async function api(path, body) {
   }
 }
 
-/* -------------------------------------------------------------- stepper */
 function scoreOf(scene) {
   const r = results[scene.id];
   if (!r) return "";
@@ -473,7 +459,6 @@ $("#stepper").addEventListener("click", e => {
   if (b && !busy) go(+b.dataset.i);
 });
 
-/* -------------------------------------------------------------- scene */
 function go(i) {
   cur = Math.max(0, Math.min(SCENES.length - 1, i));
   renderStepper();
@@ -571,9 +556,7 @@ function movePacket(el) {
   p.style.transform = `translateX(${Math.max(0, Math.min(x, t.clientWidth - p.offsetWidth))}px)`;
 }
 
-/* -------------------------------------------------------------- check states */
 function plan(s, r) {
-  // Turn the server's result into a state for every gate and check, in order.
   let failed = false;
   return s.gates.map(g => {
     const G = GATES[g];
@@ -640,7 +623,6 @@ async function animate(s, r) {
   await sleep(250);
 }
 
-/* -------------------------------------------------------------- special views */
 function setupView(r) {
   const p = r ? r.pki : [
     { role: "Root CA", where: "Kept offline, key locked with a passphrase", does: "Signs only the Issuing CA" },
@@ -680,7 +662,6 @@ function ledgerView(r) {
   </div>`;
 }
 
-/* -------------------------------------------------------------- outcome */
 function badgeFor(s, r) {
   const good = r.verdict.kind === s.expect;
   if (!good) return { cls: "bad", text: r.verdict.kind === "refused" ? "Refused" : "Unexpected result" };
@@ -702,7 +683,6 @@ function renderOutcome(s, r) {
   </div>`;
 }
 
-/* -------------------------------------------------------------- run */
 async function run() {
   if (busy) return;
   const s = SCENES[cur];
@@ -721,7 +701,7 @@ async function run() {
     return;
   }
   delete results[s.id];
-  renderViz(s);                              // fresh, idle pipeline
+  renderViz(s);
   hint("");
   if (s.view === "setup" || s.view === "ledger") {
     $("#viz").innerHTML = s.view === "setup" ? setupView(r) : ledgerView(r);
@@ -733,7 +713,7 @@ async function run() {
   renderOutcome(s, r);
   renderStepper();
   busy = false;
-  renderControls(s);                         // buttons now say "Run again" and "Next scene"
+  renderControls(s);
   const nx = $("#goNext"); if (nx) nx.focus({ preventScroll: true });
   refresh();
 }
@@ -759,7 +739,6 @@ function codeHint() {
   }
 }
 
-/* -------------------------------------------------------------- side panel */
 function setStatus(on, text) {
   $("#status").innerHTML = `<span class="dot ${on ? "on" : "off"}"></span><span>${esc(text || (on ? "" : "Demo server not reachable"))}</span>`;
 }
@@ -827,7 +806,6 @@ async function refresh() {
   if (!busy && !results[SCENES[cur].id] && SCENES[cur].view === "ledger") $("#viz").innerHTML = ledgerView();
 }
 
-/* -------------------------------------------------------------- top bar */
 $("#prevBtn").addEventListener("click", () => !busy && go(cur - 1));
 $("#nextBtn").addEventListener("click", () => !busy && go(cur + 1));
 let resetArmed = null;
@@ -853,7 +831,6 @@ addEventListener("keydown", e => {
   if (e.key === "ArrowLeft") go(cur - 1);
 });
 
-/* -------------------------------------------------------------- start */
 go(0);
 refresh();
 tickPhone();

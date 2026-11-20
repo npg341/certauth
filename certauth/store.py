@@ -1,8 +1,3 @@
-"""SQLite persistence for users, enrolled device certificates and revoked tokens.
-
-All state transitions that matter for security are single atomic statements
-(e.g. the TOTP replay guard is a compare-and-set UPDATE), so concurrent requests
-cannot race each other into accepting the same one-time code twice."""
 from __future__ import annotations
 
 import datetime as dt
@@ -48,8 +43,6 @@ CREATE TABLE IF NOT EXISTS counters (
 
 
 class _Result:
-    """Materialised cursor so rows are fetched while the lock is held."""
-
     def __init__(self, cur):
         self.rowcount = cur.rowcount
         self.rows = cur.fetchall()
@@ -104,8 +97,6 @@ class Store:
         self.lock = threading.RLock()
 
     def _x(self, sql: str, params=()):
-        """Every statement runs under one re-entrant lock: a single sqlite3 connection
-        is shared across server threads and is not safe for concurrent use."""
         with self.lock:
             return _Result(self.db.execute(sql, params))
 
@@ -129,7 +120,6 @@ class Store:
         return [r[0] for r in self._x("SELECT username FROM users ORDER BY username")]
 
     def consume_totp_step(self, username: str, step: int) -> bool:
-        """Atomic replay guard: succeeds only if `step` is newer than any accepted before."""
         with self.lock:
             cur = self._x(
                 "UPDATE users SET totp_last_step=?, failed_attempts=0, locked_until=0 "
@@ -137,8 +127,6 @@ class Store:
             return cur.rowcount == 1
 
     def record_failure(self, username: str) -> float:
-        """Increment failures; after the threshold, lock with exponential backoff
-        (30s, 60s, 120s ... capped at 1h). Returns locked_until."""
         with self.lock:
             row = self._x("SELECT failed_attempts FROM users WHERE username=?",
                                   (username,)).fetchone()

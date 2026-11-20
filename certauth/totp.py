@@ -1,9 +1,3 @@
-"""HOTP (RFC 4226) and TOTP (RFC 6238), implemented from first principles.
-
-Verification is constant-work: every candidate in the window is computed and compared
-with hmac.compare_digest, so neither the position of a match nor a malformed code
-leaks through timing. Replay protection is the caller's job via `last_step`
-(the server stores the last accepted time-step per user and does an atomic CAS)."""
 from __future__ import annotations
 
 import base64
@@ -19,7 +13,6 @@ ALGORITHMS = {"SHA1": hashlib.sha1, "SHA256": hashlib.sha256, "SHA512": hashlib.
 
 
 def generate_secret(nbytes: int = 20) -> str:
-    """160-bit secret by default (RFC 4226 §4 recommends ≥128, ideally 160)."""
     return base64.b32encode(secrets.token_bytes(nbytes)).decode().rstrip("=")
 
 

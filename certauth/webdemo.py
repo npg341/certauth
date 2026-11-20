@@ -1,16 +1,3 @@
-"""Browser-based live demonstration of CertAuth.
-
-    python web_demo.py            (in VS Code: open web_demo.py and press Run)
-    python -m certauth.webdemo
-
-Starts a real CertAuth mTLS server in the background, then serves a web page on
-http://127.0.0.1:8080 that plays each demo scene against it with the real client.
-Nothing is simulated: every check, verdict and log line on the page comes from a
-real TLS 1.3 handshake and the server's own audit log.
-
-DEMO ONLY: the page shows the current TOTP code (standing in for Alice's phone),
-and both servers listen on 127.0.0.1 only.
-"""
 from __future__ import annotations
 
 import argparse
@@ -44,7 +31,7 @@ USER = "alice"
 
 
 class SceneError(Exception):
-    """A scene cannot run yet (e.g. an earlier scene is needed first)."""
+    pass
 
 
 def _port_free(port: int) -> bool:
@@ -70,7 +57,6 @@ def _key_label(pub) -> str:
 
 
 def cert_card(cert: x509.Certificate) -> dict:
-    """What the page shows on a certificate 'ID card'."""
     fp = pki.fingerprint(cert)
     return {
         "name": pki.cert_common_name(cert),
@@ -177,8 +163,6 @@ class Demo:
         return ev[-1].get("seq") or 0 if ev else 0
 
     def wait_event(self, after: int, prefixes: tuple[str, ...], timeout: float = 3.0) -> dict | None:
-        """The server writes its audit line in its own thread, a moment after the client
-        sees the result; poll briefly for the event that explains what happened."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             for e in self.events():
@@ -188,7 +172,6 @@ class Demo:
         return None
 
     def cert_login(self, ident: dict) -> dict:
-        """Attempt a passwordless login; report where it stopped and why."""
         before = self.last_seq()
         try:
             status, body = self.client(ident).login_cert()
@@ -200,7 +183,6 @@ class Demo:
 
     @staticmethod
     def handshake_checks(r: dict) -> tuple[dict, dict]:
-        """Map a login attempt to the check rows shown on the page."""
         checks, notes = {}, {}
         if r["handshake"]:
             checks.update({"tls.ca": "pass", "tls.expiry": "pass", "tls.revoked": "pass", "tls.key": "pass"})

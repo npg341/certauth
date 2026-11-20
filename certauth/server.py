@@ -1,26 +1,3 @@
-"""Authentication server: hand-configured TLS 1.3 with optional client certificates.
-
-No web framework and no TLS terminator — the server owns the `ssl.SSLContext`, does
-the handshake itself on raw sockets and parses HTTP/1.1 directly, so every security
-decision (trust anchors, revocation, EKU, key binding) is visible in this file.
-
-Two-layer client-certificate validation
-  1. TLS layer (OpenSSL): chain to our root only, X509_STRICT, CRL check on the
-     whole chain, validity period, EKU/purpose = TLS client.
-  2. App layer: certificate must be *enrolled* (fingerprint known), not revoked in
-     the DB, and its CN must match the enrolled owner.
-
-Endpoints
-  GET  /health
-  GET  /pki/ca  /pki/crl           public PKI material
-  POST /auth/cert                  passwordless login via the presented certificate
-  POST /auth/totp                  fallback: TOTP -> short-lived single-use enroll token
-  POST /enroll                     CSR -> device certificate (needs scope 'enroll')
-  GET  /me                         profile (needs certificate-bound token)
-  GET  /devices                    list own devices
-  POST /devices/revoke             revoke one of own devices (CRL regenerated live)
-  POST /logout                     revoke current token
-"""
 from __future__ import annotations
 
 import argparse
@@ -169,8 +146,6 @@ class AuthServer:
         return ctx
 
     def context(self) -> ssl.SSLContext:
-        """Return the current context, hot-reloading it if the CRL file changed
-        (e.g. revocation via the admin CLI while the server is running)."""
         mtime = self.paths.ca_crl.stat().st_mtime_ns
         with self._ctx_lock:
             if self._ctx is None or mtime != self._crl_mtime:
@@ -330,7 +305,6 @@ class AuthServer:
             pass
 
     def _require_enrolled_cert(self, req: Request):
-        """App-layer checks on top of what OpenSSL already verified."""
         if not req.cert:
             raise HTTPError(401, "client_certificate_required",
                             hint="present your device certificate, or use /auth/totp to enroll")

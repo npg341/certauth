@@ -1,4 +1,3 @@
-"""The browser demo drives the real server; check every scene gives the expected verdict."""
 import json
 import threading
 import time

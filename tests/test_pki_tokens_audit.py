@@ -22,8 +22,6 @@ def ca():
 
 
 def test_chain_validates_with_independent_verifier(ca):
-    """Verify issued certs with cryptography's Rust RFC 5280 path validator,
-    independently of OpenSSL."""
     rk, rc, ik, ic = ca
     _, srv = pki.create_server_cert(ik, ic)
     verifier = PolicyBuilder().store(TrustStore([rc])).build_server_verifier(x509.DNSName("localhost"))
@@ -159,7 +157,6 @@ def test_audit_deletion_and_reorder_detected(audit):
 
 
 def test_audit_forgery_without_key_detected(audit):
-    """An attacker rebuilding the whole chain with a guessed key is still caught."""
     forged = AuditLog(audit.path.with_name("forged.log"), b"x" * 32)
     for i in range(5):
         forged.log("evt", i=i)

@@ -1,10 +1,3 @@
-"""Tamper-evident audit log.
-
-Each JSON line carries `prev` (the MAC of the previous line) and `mac` =
-HMAC-SHA256(audit_key, canonical_json(entry_without_mac)). Editing, deleting,
-inserting or reordering any line breaks the chain. Because the chain is keyed,
-an attacker with write access to the file but not the key cannot forge a new
-consistent chain (a plain hash chain could simply be recomputed)."""
 from __future__ import annotations
 
 import hashlib

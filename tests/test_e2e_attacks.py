@@ -1,4 +1,3 @@
-"""End-to-end tests against a live TLS server: happy paths and attack scenarios."""
 import datetime as dt
 import socket
 import ssl
@@ -13,8 +12,6 @@ from conftest import HANDSHAKE_ERRORS
 
 
 def rejected_reasons(env, timeout=2.0):
-    """The client sees the TLS alert before the server thread writes its audit line,
-    so poll briefly for the handshake-rejection event."""
     import time
     deadline = time.time() + timeout
     while True:
@@ -71,7 +68,6 @@ def test_totp_replay_rejected(env):
 
 
 def test_totp_replay_race_only_one_wins(env):
-    """10 concurrent submissions of the same code: the atomic CAS lets exactly one through."""
     code, results = env.code("alice"), []
     def go():
         results.append(env.client().login_totp("alice", code)[0])
@@ -112,7 +108,6 @@ def test_per_ip_rate_limit(make_env):
 
 
 def test_rogue_ca_certificate_rejected_at_handshake(env):
-    """Attacker runs their own CA and mints a cert with CN=alice."""
     rk, rc = pki.create_root_ca()
     ik, ic = pki.create_issuing_ca(rk, rc)
     key = ec.generate_private_key(ec.SECP256R1())
@@ -135,7 +130,6 @@ def test_expired_certificate_rejected(env):
 
 
 def test_wrong_eku_rejected(env):
-    """A genuine cert from our CA, but issued for serverAuth, must not log a user in."""
     key = ec.generate_private_key(ec.SECP256R1())
     cert = pki.issue_client_cert(env.server.ca_key, env.server.ca_cert, key.public_key(), "alice", "srv",
                                  eku=(ExtendedKeyUsageOID.SERVER_AUTH,))
@@ -148,7 +142,6 @@ def test_wrong_eku_rejected(env):
 
 
 def test_unenrolled_certificate_rejected(env):
-    """Validly-signed but never enrolled (e.g. mis-issued / backup CA leak)."""
     key = ec.generate_private_key(ec.SECP256R1())
     cert = pki.issue_client_cert(env.server.ca_key, env.server.ca_cert, key.public_key(), "alice", "x")
     ident = env.save_identity("unenrolled", key, pki.pem(cert, env.server.ca_cert))
@@ -157,7 +150,6 @@ def test_unenrolled_certificate_rejected(env):
 
 
 def test_cert_without_matching_private_key_fails(env):
-    """Stealing a certificate (public) without the private key is worthless."""
     ident, _ = env.enroll("alice")
     other = ec.generate_private_key(ec.SECP256R1())
     pki.write_key(ident[1], other)
@@ -166,7 +158,6 @@ def test_cert_without_matching_private_key_fails(env):
 
 
 def test_csr_identity_fields_ignored(env):
-    """Requesting CN=admin in the CSR does not change who the cert is issued to."""
     key = ec.generate_private_key(ec.SECP256R1())
     tok = env.totp_token("alice")
     status, body = env.client().enroll(tok, pki.pem(pki.make_csr(key, "admin")).decode(), "laptop")
@@ -240,7 +231,6 @@ def test_tls12_downgrade_refused(env):
 
 
 def test_server_identity_verified_by_client(env):
-    """Client pinned to our root rejects a server presenting any other chain."""
     ctx = ssl.create_default_context()
     with pytest.raises(ssl.SSLCertVerificationError):
         with socket.create_connection(("127.0.0.1", env.port)) as s:

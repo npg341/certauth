@@ -15,9 +15,6 @@ ROOT_PASS = b"test root passphrase"
 
 
 class Clock:
-    """Controllable application clock (TOTP steps, token expiry, lockouts).
-    Starts at real time because X.509 validity is still checked by OpenSSL in real time."""
-
     def __init__(self):
         self.t = time.time()
 

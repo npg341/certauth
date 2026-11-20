@@ -1,12 +1,3 @@
-"""Session tokens with certificate binding (proof-of-possession).
-
-Format:  v1.<base64url(JSON claims)>.<base64url(HMAC-SHA256)>
-
-Tokens minted after mTLS carry `cnf: {"x5t#S256": <thumbprint>}` (RFC 8705 §3).
-The resource handler compares that thumbprint to the certificate presented on the
-*current* TLS connection, so a stolen token is useless without the device's private
-key. TOTP-derived tokens cannot be bound to a key, so they are deliberately weak:
-short-lived, single-use and limited to the `enroll` scope (step-up model)."""
 from __future__ import annotations
 
 import base64

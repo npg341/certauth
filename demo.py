@@ -1,11 +1,3 @@
-"""Cross-platform end-to-end demo (Windows / macOS / Linux).
-
-    python demo.py
-
-Builds the PKI, starts the mTLS server, enrolls a device with TOTP, logs in
-passwordlessly, then shows TOTP replay, token theft, live revocation and audit-log
-tampering being caught. Uses its own ./demo-data folder and port 8443.
-"""
 from __future__ import annotations
 
 import json
@@ -23,9 +15,6 @@ DATA = ROOT / "demo-data"
 
 
 def pick_port(preferred: int = 8443) -> int:
-    """Use 8443 if it is free. If another program (for example web_demo.py, which runs its
-    own server with its own CA) already holds it, use a free port instead: connecting to
-    that other server would fail with 'unable to get local issuer certificate'."""
     with socket.socket() as s:
         try:
             s.bind(("127.0.0.1", preferred))

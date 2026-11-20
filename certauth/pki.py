@@ -1,14 +1,3 @@
-"""Two-tier PKI built with `cryptography`.
-
-    Root CA (P-384, offline, passphrase-encrypted key, pathLen=1)
-      └── Issuing CA (P-384, online in the server, pathLen=0, EKU-constrained)
-            ├── server certificate   (EKU serverAuth, SAN localhost/127.0.0.1)
-            └── client certificates  (EKU clientAuth, short-lived, issued from CSRs)
-
-Client private keys are generated on the device and never leave it: the server only
-ever sees a CSR, checks its proof-of-possession signature and key strength, and then
-issues a certificate whose identity fields are set by the server, not the requester.
-"""
 from __future__ import annotations
 
 import datetime as dt
@@ -65,7 +54,6 @@ def _aki(issuer_cert: x509.Certificate) -> x509.AuthorityKeyIdentifier:
 
 
 def fingerprint(cert: x509.Certificate) -> str:
-    """SHA-256 over the DER certificate — the RFC 8705 'x5t#S256' thumbprint (hex form)."""
     return cert.fingerprint(hashes.SHA256()).hex()
 
 
@@ -130,7 +118,6 @@ def create_server_cert(ca_key, ca_cert, hostnames=("localhost",), ips=("127.0.0.
 
 
 def check_public_key(pub) -> str:
-    """Key-strength policy for client keys. Returns a human description or raises."""
     if isinstance(pub, ec.EllipticCurvePublicKey):
         if not isinstance(pub.curve, (ec.SECP256R1, ec.SECP384R1)):
             raise PKIError(f"curve {pub.curve.name} not allowed")
@@ -154,8 +141,6 @@ def issue_client_cert(ca_key, ca_cert, public_key, username: str, device: str, *
                       days: int = 30, not_before=None, not_after=None,
                       eku=(ExtendedKeyUsageOID.CLIENT_AUTH,),
                       crl_url: str = "https://localhost:8443/pki/crl") -> x509.Certificate:
-    """Issue a short-lived client certificate. Subject/SAN come from the server's
-    view of the identity, never from fields in the CSR."""
     if not DEVICE_RE.match(device):
         raise PKIError("invalid device name")
     check_public_key(public_key)

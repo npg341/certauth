@@ -1,13 +1,3 @@
-"""CertAuth client library + CLI.
-
-The device key pair is generated locally (P-256 by default) and written with 0600
-permissions, optionally passphrase-encrypted. Only the CSR is sent to the server.
-
-    python -m certauth.client enroll --user alice --device laptop
-    python -m certauth.client me
-    python -m certauth.client devices
-    python -m certauth.client revoke <serial>
-"""
 from __future__ import annotations
 
 import argparse
@@ -151,8 +141,6 @@ def main(argv=None) -> int:
 
 
 def diagnose_certificate(args) -> str:
-    """Explain a rejected handshake by checking our own certificate against the
-    server's published CRL (fetched over an anonymous, server-authenticated TLS link)."""
     import datetime as dt
     from cryptography import x509
     crt = _profile(args) / "device.crt"
